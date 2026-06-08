@@ -57,6 +57,21 @@ export async function getTransactions(monthYear) {
   return data
 }
 
+export async function getTransactionsUpTo(monthYear) {
+  let query = supabase
+    .from('transactions')
+    .select('*, accounts(name, type)')
+    .order('created_at', { ascending: false })
+  
+  if (monthYear) {
+    query = query.lte('month_year', monthYear)
+  }
+  
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
 export async function getTransactionsByAccount(accountId, monthYear) {
   let query = supabase
     .from('transactions')
@@ -109,9 +124,24 @@ export async function getExpenses(monthYear) {
     .from('expenses')
     .select('*')
     .order('date', { ascending: true })
+    .order('created_at', { ascending: true })
   
   if (monthYear) {
     query = query.eq('month_year', monthYear)
+  }
+  
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
+export async function getExpensesUpTo(monthYear) {
+  let query = supabase
+    .from('expenses')
+    .select('*')
+  
+  if (monthYear) {
+    query = query.lte('month_year', monthYear)
   }
   
   const { data, error } = await query
@@ -130,9 +160,14 @@ export async function createExpense(expense) {
 }
 
 export async function createExpenses(expensesList) {
+  const now = new Date()
+  const listWithTime = expensesList.map((exp, idx) => ({
+    ...exp,
+    created_at: new Date(now.getTime() + idx * 1000).toISOString()
+  }))
   const { data, error } = await supabase
     .from('expenses')
-    .insert(expensesList)
+    .insert(listWithTime)
     .select()
   if (error) throw error
   return data
@@ -144,6 +179,17 @@ export async function deleteExpense(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+}
+
+export async function updateExpense(id, updates) {
+  const { data, error } = await supabase
+    .from('expenses')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
 }
 
 // ============ MONTHLY SUMMARIES ============
@@ -174,16 +220,19 @@ export async function getAccountBalances(monthYear) {
   // Get all accounts
   const accounts = await getAccounts()
   
-  // Get all transactions for this month
-  const transactions = await getTransactions(monthYear)
+  // Get all transactions up to this month
+  const allTransactions = await getTransactionsUpTo(monthYear)
   
   // Calculate net balance per account
   const balances = accounts.map(account => {
-    const accountTxns = transactions.filter(t => t.account_id === account.id)
-    const total = accountTxns.reduce((sum, t) => sum + (t.amount || 0), 0)
+    // Current month transactions (filtered for display)
+    const currentTxns = allTransactions.filter(t => t.account_id === account.id && t.month_year === monthYear)
+    // All transactions up to this month (for total balance)
+    const cumulativeTxns = allTransactions.filter(t => t.account_id === account.id)
+    const total = cumulativeTxns.reduce((sum, t) => sum + (t.amount || 0), 0)
     return {
       ...account,
-      transactions: accountTxns,
+      transactions: currentTxns,
       balance: total
     }
   })
@@ -194,6 +243,7 @@ export async function getAccountBalances(monthYear) {
 export async function getDashboardData(monthYear) {
   const balances = await getAccountBalances(monthYear)
   const expenses = await getExpenses(monthYear)
+  const allExpensesUpTo = await getExpensesUpTo(monthYear)
   const summary = await getMonthlySummary(monthYear)
   
   const receivables = balances.filter(a => a.type === 'receivable')
@@ -203,6 +253,8 @@ export async function getDashboardData(monthYear) {
   const totalReceivables = receivables.reduce((s, a) => s + a.balance, 0)
   const totalPayables = payables.reduce((s, a) => s + a.balance, 0)
   const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalExpensesUpTo = allExpensesUpTo.reduce((s, e) => s + (e.amount || 0), 0)
+  
   const daysTracked = new Set(expenses.map(e => e.date)).size
   const perDayAvg = daysTracked > 0 ? totalExpenses / daysTracked : 0
 
@@ -227,7 +279,8 @@ export async function getDashboardData(monthYear) {
       return name.includes('bank')
     })
     .reduce((s, a) => s + a.balance, 0)
-  const onlineBalance = rawOnlineBalance + expenseAllotted - totalExpenses
+  
+  const onlineBalance = rawOnlineBalance + expenseAllotted - totalExpensesUpTo
   const selfTotal = cashBalance + onlineBalance + bankBalance
   
   const totalAssets = totalReceivables + selfTotal
@@ -249,6 +302,7 @@ export async function getDashboardData(monthYear) {
     availableBalance,
     expenses,
     totalExpenses,
+    totalExpensesUpTo,
     daysTracked,
     perDayAvg,
     summary,

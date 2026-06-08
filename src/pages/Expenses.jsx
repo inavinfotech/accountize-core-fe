@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting } from '../lib/db'
+import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting, updateExpense } from '../lib/db'
 import { formatCurrency, formatDate, getDaysInMonth } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import {
   Plus, Trash2, Receipt, Calendar, TrendingDown,
-  Calculator, Target, Clock
+  Calculator, Target, Clock, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -18,6 +18,7 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [newExpenses, setNewExpenses] = useState([])
+  const [rearrangeMode, setRearrangeMode] = useState(false)
   const [estimatePerDay, setEstimatePerDay] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
@@ -138,6 +139,62 @@ export default function Expenses() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to delete expense:', err)
+    }
+  }
+
+  const handleMoveExpense = async (date, expenseId, direction) => {
+    const dateExpenses = expenses.filter(e => e.date === date)
+    const index = dateExpenses.findIndex(e => e.id === expenseId)
+    if (index === -1) return
+
+    const swapIndex = direction === 'left' ? index - 1 : index + 1
+    if (swapIndex < 0 || swapIndex >= dateExpenses.length) return
+
+    const currentExpense = dateExpenses[index]
+    const swapExpense = dateExpenses[swapIndex]
+
+    let currentCreatedAt = new Date(currentExpense.created_at).getTime()
+    let swapCreatedAt = new Date(swapExpense.created_at).getTime()
+    
+    if (currentCreatedAt === swapCreatedAt) {
+      if (direction === 'left') {
+        currentCreatedAt -= 1000
+      } else {
+        currentCreatedAt += 1000
+      }
+    }
+    
+    const newCurrentCreated = new Date(swapCreatedAt).toISOString()
+    const newSwapCreated = new Date(currentCreatedAt).toISOString()
+
+    // Update state immediately
+    const updatedExpenses = expenses.map(e => {
+      if (e.id === currentExpense.id) {
+        return { ...e, created_at: newCurrentCreated }
+      }
+      if (e.id === swapExpense.id) {
+        return { ...e, created_at: newSwapCreated }
+      }
+      return e
+    })
+    
+    // Sort local expenses
+    const sorted = [...updatedExpenses].sort((a, b) => {
+      const dateDiff = new Date(a.date) - new Date(b.date)
+      if (dateDiff !== 0) return dateDiff
+      return new Date(a.created_at) - new Date(b.created_at)
+    })
+    setExpenses(sorted)
+
+    try {
+      await Promise.all([
+        updateExpense(currentExpense.id, { created_at: newCurrentCreated }),
+        updateExpense(swapExpense.id, { created_at: newSwapCreated })
+      ])
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to swap expenses:', err)
+      loadExpenses()
     }
   }
 
@@ -323,9 +380,21 @@ export default function Expenses() {
 
       {/* Expenses Grid Table */}
       <div className="card">
-        <div className="card-header">
-          <div className="card-title">All Expenses</div>
-          <div className="badge purple">{expenses.length} entries</div>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div className="card-title">All Expenses</div>
+            <div className="badge purple" style={{ marginTop: 4 }}>{expenses.length} entries</div>
+          </div>
+          {expenses.length > 0 && (
+            <button
+              className={`btn btn-sm ${rearrangeMode ? 'btn-primary' : 'btn-secondary'}`}
+              type="button"
+              onClick={() => setRearrangeMode(!rearrangeMode)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.75rem' }}
+            >
+              {rearrangeMode ? 'Done Rearranging' : 'Rearrange Sequence'}
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -367,41 +436,91 @@ export default function Expenses() {
 
                   {/* Pills Container */}
                   <div className="transaction-pills">
-                    {dateExpenses.map(expense => (
+                    {dateExpenses.map((expense, idx) => (
                       <div
                         key={expense.id}
                         className="transaction-pill debit"
                         style={{
                           background: 'rgba(239, 68, 68, 0.05)',
                           borderColor: 'rgba(239, 68, 68, 0.15)',
-                          color: '#ef4444'
+                          color: '#ef4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
                         }}
                       >
+                        {rearrangeMode && idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleMoveExpense(date, expense.id, 'left')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              color: 'inherit',
+                              opacity: 0.8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: 2
+                            }}
+                            title="Move Left"
+                          >
+                            <ChevronLeft size={14} strokeWidth={3} />
+                          </button>
+                        )}
+
                         <span style={{ fontWeight: 600 }}>{formatCurrency(expense.amount)}</span>
                         {expense.description && (
                           <span style={{ opacity: 0.8, fontSize: '0.7rem' }}> · {expense.description}</span>
                         )}
-                        <button
-                          onClick={() => setDeleteConfirm({
-                            id: expense.id,
-                            amount: expense.amount,
-                            description: expense.description
-                          })}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '0 2px',
-                            color: 'inherit',
-                            opacity: 0.6,
-                            marginLeft: 4,
-                            fontSize: '0.8rem',
-                            fontWeight: 700
-                          }}
-                          title="Delete Expense"
-                        >
-                          ×
-                        </button>
+
+                        {rearrangeMode && idx < dateExpenses.length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleMoveExpense(date, expense.id, 'right')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              color: 'inherit',
+                              opacity: 0.8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginLeft: 2
+                            }}
+                            title="Move Right"
+                          >
+                            <ChevronRight size={14} strokeWidth={3} />
+                          </button>
+                        )}
+
+                        {!rearrangeMode && (
+                          <button
+                            onClick={() => setDeleteConfirm({
+                              id: expense.id,
+                              amount: expense.amount,
+                              description: expense.description
+                            })}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '0 2px',
+                              color: 'inherit',
+                              opacity: 0.6,
+                              marginLeft: 4,
+                              fontSize: '0.8rem',
+                              fontWeight: 700
+                            }}
+                            title="Delete Expense"
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

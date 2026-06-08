@@ -192,8 +192,8 @@ export default function Verification() {
                 <span className="positive">+{formatCurrency(data.expenseAllotted)}</span>
               </div>
               <div className="flex-between">
-                <span>Total Expenses:</span>
-                <span className="negative">-{formatCurrency(data.totalExpenses)}</span>
+                <span>Total Expenses (Cumulative):</span>
+                <span className="negative">-{formatCurrency(data.totalExpensesUpTo)}</span>
               </div>
             </div>
             <div className="flex-between">

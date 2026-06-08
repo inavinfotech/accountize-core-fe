@@ -147,6 +147,12 @@ export default function Dashboard() {
           <div className="stat-card-label">Online Balance</div>
           <div className="stat-card-value">{formatCurrency(data.onlineBalance)}</div>
         </div>
+
+        <div className="stat-card indigo">
+          <div className="stat-card-icon indigo"><PiggyBank size={20} /></div>
+          <div className="stat-card-label">Other Banks</div>
+          <div className="stat-card-value">{formatCurrency(data.bankBalance)}</div>
+        </div>
       </div>
 
       {/* Charts Row */}

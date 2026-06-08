@@ -170,10 +170,6 @@ export default function Verification() {
               </span>
             </div>
             <div className="divider" style={{ margin: '4px 0' }} />
-            <div className="flex-between">
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Cash Balance</span>
-              <span className="amount">{formatCurrency(data.cashBalance)}</span>
-            </div>
             <div className="flex-between" style={{ marginBottom: 2 }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Online Balance</span>
               <span className="amount" style={{ fontWeight: 600 }}>{formatCurrency(data.onlineBalance)}</span>
@@ -200,6 +196,14 @@ export default function Verification() {
                 <span className="negative">-{formatCurrency(data.totalExpenses)}</span>
               </div>
             </div>
+            <div className="flex-between">
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Cash Balance</span>
+              <span className="amount">{formatCurrency(data.cashBalance)}</span>
+            </div>
+              <div className="flex-between" style={{ marginBottom: 2 }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Other Banks Balance</span>
+                <span className="amount" style={{ fontWeight: 600 }}>{formatCurrency(data.bankBalance)}</span>
+              </div>
           </div>
         </div>
 

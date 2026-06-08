@@ -221,8 +221,14 @@ export async function getDashboardData(monthYear) {
       return !name.includes('cash') && !name.includes('expense') && !name.includes('expence') && !name.includes('bank')
     })
     .reduce((s, a) => s + a.balance, 0)
+  const bankBalance = selfAccounts
+    .filter(a => {
+      const name = a.name?.toLowerCase() || ''
+      return name.includes('bank')
+    })
+    .reduce((s, a) => s + a.balance, 0)
   const onlineBalance = rawOnlineBalance + expenseAllotted - totalExpenses
-  const selfTotal = cashBalance + onlineBalance
+  const selfTotal = cashBalance + onlineBalance + bankBalance
   
   const totalAssets = totalReceivables + selfTotal
   const availableBalance = totalAssets - totalPayables
@@ -237,6 +243,7 @@ export async function getDashboardData(monthYear) {
     cashBalance,
     rawOnlineBalance,
     onlineBalance,
+    bankBalance,
     expenseAllotted,
     totalAssets,
     availableBalance,

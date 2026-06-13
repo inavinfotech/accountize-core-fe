@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting, updateExpense } from '../lib/db'
-import { formatCurrency, formatDate, getDaysInMonth } from '../lib/utils'
+import { formatCurrency, formatDate, getDaysInMonth, exportToCSV } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
+import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Receipt, Calendar, TrendingDown,
-  Calculator, Target, Clock, ChevronLeft, ChevronRight
+  Calculator, Target, Clock, Download,
+  ArrowUpDown, Check, GripVertical
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -21,12 +23,18 @@ export default function Expenses() {
   const [rearrangeMode, setRearrangeMode] = useState(false)
   const [estimatePerDay, setEstimatePerDay] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [draggedId, setDraggedId] = useState(null)
+  const [dragOverId, setDragOverId] = useState(null)
+
+  const pendingUpdatesRef = useRef({})
+  const debounceTimerRef = useRef(null)
+  const draggedIdRef = useRef(null)
 
   const getDefaultDate = () => {
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
     if (todayStr === currentMonth) {
-      return today.toISOString().split('T')[0]
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     }
     return `${currentMonth}-01`
   }
@@ -79,6 +87,22 @@ export default function Expenses() {
     loadExpenses()
   }, [currentMonth, refreshKey])
 
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+      const updates = pendingUpdatesRef.current
+      if (updates && Object.keys(updates).length > 0) {
+        Promise.all(
+          Object.entries(updates).map(([id, newCreatedAt]) =>
+            updateExpense(id, { created_at: newCreatedAt })
+          )
+        ).catch(err => console.error('Failed to save pending updates on unmount:', err))
+      }
+    }
+  }, [])
+
   async function loadExpenses() {
     try {
       setLoading(true)
@@ -91,6 +115,16 @@ export default function Expenses() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleExportExpenses = () => {
+    const headers = ['Date', 'Amount (₹)', 'Description']
+    const rows = expenses.map(e => [
+      formatDate(e.date),
+      e.amount,
+      e.description || ''
+    ])
+    exportToCSV(`expenses_${currentMonth}.csv`, headers, rows)
   }
 
   async function handleAdd(e) {
@@ -142,38 +176,69 @@ export default function Expenses() {
     }
   }
 
-  const handleMoveExpense = async (date, expenseId, direction) => {
+  const savePendingUpdates = async () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+
+    const updates = pendingUpdatesRef.current
+    if (Object.keys(updates).length === 0) return
+
+    pendingUpdatesRef.current = {}
+
+    try {
+      await Promise.all(
+        Object.entries(updates).map(([id, newCreatedAt]) =>
+          updateExpense(id, { created_at: newCreatedAt })
+        )
+      )
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to save rearranged expenses:', err)
+      loadExpenses()
+    }
+  }
+
+  const handleSwapExpenses = (date, id1, id2) => {
+    if (id1 === id2) return
     const dateExpenses = expenses.filter(e => e.date === date)
-    const index = dateExpenses.findIndex(e => e.id === expenseId)
-    if (index === -1) return
+    const index1 = dateExpenses.findIndex(e => e.id === id1)
+    const index2 = dateExpenses.findIndex(e => e.id === id2)
+    if (index1 === -1 || index2 === -1) return
 
-    const swapIndex = direction === 'left' ? index - 1 : index + 1
-    if (swapIndex < 0 || swapIndex >= dateExpenses.length) return
+    // Reorder the array locally (placing item1 at the position of item2)
+    const reorderedDateExpenses = [...dateExpenses]
+    const [movedItem] = reorderedDateExpenses.splice(index1, 1)
+    reorderedDateExpenses.splice(index2, 0, movedItem)
 
-    const currentExpense = dateExpenses[index]
-    const swapExpense = dateExpenses[swapIndex]
-
-    let currentCreatedAt = new Date(currentExpense.created_at).getTime()
-    let swapCreatedAt = new Date(swapExpense.created_at).getTime()
+    // Original sorted timestamps (ensuring they are strictly increasing)
+    const originalTimestamps = dateExpenses.map(e => new Date(e.created_at).getTime())
     
-    if (currentCreatedAt === swapCreatedAt) {
-      if (direction === 'left') {
-        currentCreatedAt -= 1000
-      } else {
-        currentCreatedAt += 1000
+    // Ensure strictly increasing order
+    for (let i = 1; i < originalTimestamps.length; i++) {
+      if (originalTimestamps[i] <= originalTimestamps[i - 1]) {
+        originalTimestamps[i] = originalTimestamps[i - 1] + 1000
       }
     }
     
-    const newCurrentCreated = new Date(swapCreatedAt).toISOString()
-    const newSwapCreated = new Date(currentCreatedAt).toISOString()
+    // Convert back to ISO string
+    const originalTimestampsISO = originalTimestamps.map(t => new Date(t).toISOString())
 
-    // Update state immediately
+    // Map each item in the reordered list to its new timestamp
+    const updates = {}
     const updatedExpenses = expenses.map(e => {
-      if (e.id === currentExpense.id) {
-        return { ...e, created_at: newCurrentCreated }
-      }
-      if (e.id === swapExpense.id) {
-        return { ...e, created_at: newSwapCreated }
+      if (e.date !== date) return e
+
+      // Find the index of this item in the reordered list
+      const newIdx = reorderedDateExpenses.findIndex(item => item.id === e.id)
+      if (newIdx === -1) return e
+      
+      const newCreatedAt = originalTimestampsISO[newIdx]
+
+      if (e.created_at !== newCreatedAt) {
+        updates[e.id] = newCreatedAt
+        return { ...e, created_at: newCreatedAt }
       }
       return e
     })
@@ -186,16 +251,18 @@ export default function Expenses() {
     })
     setExpenses(sorted)
 
-    try {
-      await Promise.all([
-        updateExpense(currentExpense.id, { created_at: newCurrentCreated }),
-        updateExpense(swapExpense.id, { created_at: newSwapCreated })
-      ])
-      triggerRefresh()
-    } catch (err) {
-      console.error('Failed to swap expenses:', err)
-      loadExpenses()
+    // Store in pending updates
+    Object.entries(updates).forEach(([id, newCreatedAt]) => {
+      pendingUpdatesRef.current[id] = newCreatedAt
+    })
+
+    // Debounce save to database (3 seconds)
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
     }
+    debounceTimerRef.current = setTimeout(() => {
+      savePendingUpdates()
+    }, 3000)
   }
 
   // ===== Analytics (matching Excel formulas) =====
@@ -213,7 +280,7 @@ export default function Expenses() {
   // Group by date for chart
   const byDate = {}
   expenses.forEach(e => {
-    const day = new Date(e.date).getDate()
+    const day = parseInt(e.date.split('-')[2], 10)
     byDate[day] = (byDate[day] || 0) + e.amount
   })
 
@@ -251,7 +318,10 @@ export default function Expenses() {
       <div className="stats-grid">
         <div className="stat-card red">
           <div className="stat-card-icon red"><TrendingDown size={20} /></div>
-          <div className="stat-card-label">Total Spent</div>
+          <div className="stat-card-label">
+            Total Spent
+            <InfoButton metricId="totalExpenses" contextValues={{ totalExpenses: totalSpend }} />
+          </div>
           <div className="stat-card-value" style={{ color: 'var(--red)' }}>
             {formatCurrency(totalSpend)}
           </div>
@@ -259,13 +329,19 @@ export default function Expenses() {
 
         <div className="stat-card blue">
           <div className="stat-card-icon blue"><Calculator size={20} /></div>
-          <div className="stat-card-label">Per Day Average</div>
+          <div className="stat-card-label">
+            Per Day Average
+            <InfoButton metricId="perDayAvg" contextValues={{ totalExpenses: totalSpend, daysTracked: uniqueDays }} />
+          </div>
           <div className="stat-card-value">{formatCurrency(perDayAvg)}</div>
         </div>
 
         <div className="stat-card purple">
           <div className="stat-card-icon purple"><Clock size={20} /></div>
-          <div className="stat-card-label">Days Tracked</div>
+          <div className="stat-card-label">
+            Days Tracked
+            <InfoButton metricId="daysTracked" contextValues={{ daysTracked: uniqueDays }} />
+          </div>
           <div className="stat-card-value" style={{ color: 'var(--purple)' }}>
             {uniqueDays} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {daysInMonth}</span>
           </div>
@@ -273,7 +349,10 @@ export default function Expenses() {
 
         <div className="stat-card amber">
           <div className="stat-card-icon amber"><Target size={20} /></div>
-          <div className="stat-card-label">Month Estimate</div>
+          <div className="stat-card-label">
+            Month Estimate
+            <InfoButton metricId="monthEstimate" contextValues={{ perDayAvg, daysInMonth }} />
+          </div>
           <div className="stat-card-value" style={{ color: 'var(--amber)' }}>
             {formatCurrency(monthEstimate)}
           </div>
@@ -332,7 +411,10 @@ export default function Expenses() {
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Target per day budget (₹)</label>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              Target per day budget (₹)
+              <InfoButton metricId="targetPerDayBudget" contextValues={{ customEstimatePerDay }} />
+            </label>
             <input
               className="form-input"
               type="number"
@@ -347,24 +429,31 @@ export default function Expenses() {
           {customEstimatePerDay > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Value / Day</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Value / Day
+                  <InfoButton metricId="targetPerDayBudget" contextValues={{ customEstimatePerDay }} />
+                </span>
                 <span className="amount" style={{ color: 'var(--blue)' }}>
                   {formatCurrency(customEstimatePerDay)}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Value / Day × {daysInMonth} days</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Value / Day × {daysInMonth} days
+                  <InfoButton metricId="customEstimateTotal" contextValues={{ customEstimatePerDay, daysInMonth }} />
+                </span>
                 <span className="amount" style={{ color: 'var(--amber)' }}>
                   {formatCurrency(customEstimateTotal)}
                 </span>
               </div>
               <div className="divider" style={{ margin: '4px 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   Overrun (spent - budget for {uniqueDays} days)
+                  <InfoButton metricId="overrun" contextValues={{ totalSpend, customEstimatePerDay, uniqueDays }} />
                 </span>
                 <span className={`amount ${overrun > 0 ? 'negative' : 'positive'}`}>
-                  {overrun > 0 ? '+' : ''}{formatCurrency(overrun)}
+                  {formatCurrency(overrun)}
                 </span>
               </div>
               <div
@@ -380,20 +469,36 @@ export default function Expenses() {
 
       {/* Expenses Grid Table */}
       <div className="card">
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-header">
           <div>
             <div className="card-title">All Expenses</div>
             <div className="badge purple" style={{ marginTop: 4 }}>{expenses.length} entries</div>
           </div>
           {expenses.length > 0 && (
-            <button
-              className={`btn btn-sm ${rearrangeMode ? 'btn-primary' : 'btn-secondary'}`}
-              type="button"
-              onClick={() => setRearrangeMode(!rearrangeMode)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.75rem' }}
-            >
-              {rearrangeMode ? 'Done Rearranging' : 'Rearrange Sequence'}
-            </button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                className="btn btn-secondary btn-sm btn-mobile-icon"
+                type="button"
+                onClick={handleExportExpenses}
+                title="Export CSV"
+              >
+                <Download size={14} /> <span className="btn-text">Export CSV</span>
+              </button>
+              <button
+                className={`btn btn-sm btn-mobile-icon ${rearrangeMode ? 'btn-primary' : 'btn-secondary'}`}
+                type="button"
+                onClick={() => {
+                  if (rearrangeMode) {
+                    savePendingUpdates()
+                  }
+                  setRearrangeMode(!rearrangeMode)
+                }}
+                title={rearrangeMode ? 'Done Rearranging' : 'Rearrange Sequence'}
+              >
+                {rearrangeMode ? <Check size={14} /> : <ArrowUpDown size={14} />}
+                <span className="btn-text">{rearrangeMode ? 'Done Rearranging' : 'Rearrange Sequence'}</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -436,10 +541,50 @@ export default function Expenses() {
 
                   {/* Pills Container */}
                   <div className="transaction-pills">
-                    {dateExpenses.map((expense, idx) => (
+                    {dateExpenses.map((expense) => (
                       <div
                         key={expense.id}
-                        className="transaction-pill debit"
+                        className={`transaction-pill debit ${rearrangeMode ? 'draggable' : ''} ${draggedId === expense.id ? 'dragged' : ''} ${dragOverId === expense.id ? 'drag-over' : ''}`}
+                        draggable={rearrangeMode}
+                        onDragStart={(e) => {
+                          if (!rearrangeMode) return
+                          draggedIdRef.current = expense.id
+                          setDraggedId(expense.id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          e.dataTransfer.setData('text/plain', expense.id)
+                        }}
+                        onDragEnd={() => {
+                          draggedIdRef.current = null
+                          setDraggedId(null)
+                          setDragOverId(null)
+                        }}
+                        onDragOver={(e) => {
+                          if (!rearrangeMode) return
+                          e.preventDefault()
+                        }}
+                        onDragEnter={() => {
+                          if (!rearrangeMode || !draggedIdRef.current) return
+                          const draggedExpense = expenses.find(x => x.id === draggedIdRef.current)
+                          if (draggedExpense && draggedExpense.date === date && expense.id !== draggedIdRef.current) {
+                            setDragOverId(expense.id)
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (dragOverId === expense.id) {
+                            setDragOverId(null)
+                          }
+                        }}
+                        onDrop={(e) => {
+                          if (!rearrangeMode) return
+                          e.preventDefault()
+                          const srcId = e.dataTransfer.getData('text/plain') || draggedIdRef.current
+                          if (srcId && srcId !== expense.id) {
+                            handleSwapExpenses(date, srcId, expense.id)
+                          }
+                          draggedIdRef.current = null
+                          setDraggedId(null)
+                          setDragOverId(null)
+                        }}
                         style={{
                           background: 'rgba(239, 68, 68, 0.05)',
                           borderColor: 'rgba(239, 68, 68, 0.15)',
@@ -449,53 +594,21 @@ export default function Expenses() {
                           gap: '6px'
                         }}
                       >
-                        {rearrangeMode && idx > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => handleMoveExpense(date, expense.id, 'left')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                              color: 'inherit',
-                              opacity: 0.8,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginRight: 2
-                            }}
-                            title="Move Left"
-                          >
-                            <ChevronLeft size={14} strokeWidth={3} />
-                          </button>
+                        {rearrangeMode && (
+                          <GripVertical 
+                            size={12} 
+                            style={{ 
+                              cursor: 'grab', 
+                              opacity: 0.6,
+                              marginRight: -2,
+                              flexShrink: 0
+                            }} 
+                          />
                         )}
 
                         <span style={{ fontWeight: 600 }}>{formatCurrency(expense.amount)}</span>
                         {expense.description && (
                           <span style={{ opacity: 0.8, fontSize: '0.7rem' }}> · {expense.description}</span>
-                        )}
-
-                        {rearrangeMode && idx < dateExpenses.length - 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleMoveExpense(date, expense.id, 'right')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                              color: 'inherit',
-                              opacity: 0.8,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginLeft: 2
-                            }}
-                            title="Move Right"
-                          >
-                            <ChevronRight size={14} strokeWidth={3} />
-                          </button>
                         )}
 
                         {!rearrangeMode && (

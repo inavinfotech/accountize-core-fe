@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { getDashboardData, upsertMonthlySummary } from '../lib/db'
 import { formatCurrency, getAmountClass } from '../lib/utils'
+import InfoButton from '../components/InfoButton'
 import {
   ShieldCheck, ShieldAlert, Save, AlertTriangle,
   CheckCircle2, XCircle, ArrowRight
@@ -72,11 +73,11 @@ export default function Verification() {
       const manualOnlineVal = parseFloat(manualOnline) || 0
       
       // Matching Excel I31: IF(ROUND(F31,2)=ROUND(H31,2), "No Fault", "Fault")
-      const isOnlineVerified = Math.round(data.onlineBalance * 100) === Math.round(manualOnlineVal * 100)
+      const isOnlineVerified = !manualOnline || Math.round(data.onlineBalance * 100) === Math.round(manualOnlineVal * 100)
       const onlineFault = data.onlineBalance - manualOnlineVal
 
       // Matching Excel G55/H55: Cash verification
-      const cashVerified = Math.round(data.cashBalance * 100) === Math.round(manualCashVal * 100)
+      const cashVerified = !manualCash || Math.round(data.cashBalance * 100) === Math.round(manualCashVal * 100)
 
       await upsertMonthlySummary({
         month_year: currentMonth,
@@ -116,11 +117,11 @@ export default function Verification() {
   const manualOnlineVal = parseFloat(manualOnline) || 0
 
   // Excel Row 31 formulas (Online Check — F31 vs H31)
-  const isOnlineVerified = manualOnlineVal > 0 && Math.abs(data.onlineBalance - manualOnlineVal) < 0.01
+  const isOnlineVerified = !manualOnline || Math.abs(data.onlineBalance - manualOnlineVal) < 0.01
   const onlineFault = data.onlineBalance - manualOnlineVal
 
   // Excel Row 54-55 (Cash Check)
-  const isCashVerified = manualCashVal > 0 && Math.abs(data.cashBalance - manualCashVal) < 0.01
+  const isCashVerified = !manualCash || Math.abs(data.cashBalance - manualCashVal) < 0.01
   const cashFault = data.cashBalance - manualCashVal
 
   const allVerified = isOnlineVerified && isCashVerified
@@ -133,7 +134,7 @@ export default function Verification() {
       </div>
 
       {/* Overall Status */}
-      {manualOnlineVal > 0 && !allVerified && (
+      {(manualBalance || manualCash) && !allVerified && (
         <div className="verification-banner fail">
           <div className="verification-banner-icon">
             <ShieldAlert size={24} />
@@ -155,23 +156,35 @@ export default function Verification() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="flex-between">
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Assets</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Total Assets
+                <InfoButton metricId="totalAssetsVerification" contextValues={data} />
+              </span>
               <span className="amount positive">{formatCurrency(data.totalAssets)}</span>
             </div>
             <div className="flex-between">
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Liabilities</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Total Liabilities
+                <InfoButton metricId="totalLiabilitiesVerification" contextValues={data} />
+              </span>
               <span className="amount negative">{formatCurrency(data.totalPayables)}</span>
             </div>
             <div className="divider" style={{ margin: '4px 0' }} />
             <div className="flex-between">
-              <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Available Balance</span>
+              <span style={{ fontWeight: 600, fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Available Balance
+                <InfoButton metricId="availableBalance" contextValues={data} />
+              </span>
               <span className={`amount ${getAmountClass(data.availableBalance)}`} style={{ fontSize: '1.1rem' }}>
                 {formatCurrency(data.availableBalance)}
               </span>
             </div>
             <div className="divider" style={{ margin: '4px 0' }} />
             <div className="flex-between" style={{ marginBottom: 2 }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Online Balance</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Online Balance
+                <InfoButton metricId="onlineBalance" contextValues={data} />
+              </span>
               <span className="amount" style={{ fontWeight: 600 }}>{formatCurrency(data.onlineBalance)}</span>
             </div>
             <div style={{
@@ -184,24 +197,39 @@ export default function Verification() {
               color: 'var(--text-secondary)'
             }}>
               <div className="flex-between">
-                <span>Online Accounts Raw:</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Online Accounts Raw:
+                  <InfoButton metricId="onlineAccountsRawVerification" contextValues={data} />
+                </span>
                 <span>{formatCurrency(data.rawOnlineBalance)}</span>
               </div>
               <div className="flex-between">
-                <span>Expense Allotted:</span>
-                <span className="positive">+{formatCurrency(data.expenseAllotted)}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Expense Allotted:
+                  <InfoButton metricId="expenseAllottedVerification" contextValues={data} />
+                </span>
+                <span className="positive">{formatCurrency(data.expenseAllotted)}</span>
               </div>
               <div className="flex-between">
-                <span>Total Expenses (Cumulative):</span>
-                <span className="negative">-{formatCurrency(data.totalExpensesUpTo)}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Total Expenses (Cumulative):
+                  <InfoButton metricId="totalExpensesCumulativeVerification" contextValues={data} />
+                </span>
+                <span className="negative">{formatCurrency(data.totalExpensesUpTo)}</span>
               </div>
             </div>
             <div className="flex-between">
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Cash Balance</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Cash Balance
+                <InfoButton metricId="cashBalance" contextValues={data} />
+              </span>
               <span className="amount">{formatCurrency(data.cashBalance)}</span>
             </div>
               <div className="flex-between" style={{ marginBottom: 2 }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Other Banks Balance</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Other Banks Balance
+                  <InfoButton metricId="bankBalance" contextValues={data} />
+                </span>
                 <span className="amount" style={{ fontWeight: 600 }}>{formatCurrency(data.bankBalance)}</span>
               </div>
           </div>
@@ -267,7 +295,7 @@ export default function Verification() {
       </div>
 
       {/* Verification Results */}
-      {manualOnlineVal > 0 && (
+      {(manualBalance || manualCash) && (
         <div className="card">
           <div className="card-header">
             <div className="card-title">Verification Results</div>
@@ -287,7 +315,12 @@ export default function Verification() {
               </thead>
               <tbody>
                 <tr>
-                  <td style={{ fontWeight: 600 }}>Online Balance Check</td>
+                  <td style={{ fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      Online Balance Check
+                      <InfoButton metricId="onlineBalanceCheck" contextValues={{ ...data, manualOnlineVal }} />
+                    </div>
+                  </td>
                   <td className={`amount ${getAmountClass(data.onlineBalance)}`}>
                     {formatCurrency(data.onlineBalance)}
                   </td>
@@ -302,9 +335,14 @@ export default function Verification() {
                     </span>
                   </td>
                 </tr>
-                {manualCashVal > 0 && (
+                {manualCash !== '' && (
                   <tr>
-                    <td style={{ fontWeight: 600 }}>Cash Balance Check</td>
+                    <td style={{ fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        Cash Balance Check
+                        <InfoButton metricId="cashBalanceCheck" contextValues={{ ...data, manualCashVal }} />
+                      </div>
+                    </td>
                     <td className="amount">{formatCurrency(data.cashBalance)}</td>
                     <td style={{ textAlign: 'center' }}><ArrowRight size={14} color="var(--text-muted)" /></td>
                     <td className="amount">{formatCurrency(manualCashVal)}</td>

@@ -1,39 +1,86 @@
-
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Expenses from './pages/Expenses'
 import Verification from './pages/Verification'
+import Security from './pages/Security'
+import Login from './pages/Login'
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
-  Wallet, Calendar
+  Calendar, LogOut, Shield
 } from 'lucide-react'
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth()
+  
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+        <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+      </div>
+    )
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+  
+  return children
+}
+
+function LoginRoute() {
+  const { user, loading } = useAuth()
+  
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+        <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+      </div>
+    )
+  }
+  
+  if (user) {
+    return <Navigate to="/" replace />
+  }
+  
+  return <Login />
+}
 
 function TopBar() {
   const { currentMonth, setCurrentMonth, monthOptions } = useApp()
+  const { signOut } = useAuth()
 
   return (
     <header className="mobile-header">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <Wallet size={18} color="white" />
-        </div>
+        <img src="/logo.svg" alt="Accountify Logo" className="sidebar-logo-icon" />
         <div className="sidebar-logo-text">
           <h1>Accountify</h1>
           <p>Personal Finance</p>
         </div>
       </div>
-      <div className="mobile-month-select">
-        <Calendar size={14} color="var(--text-secondary)" />
-        <select
-          value={currentMonth}
-          onChange={e => setCurrentMonth(e.target.value)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="mobile-month-select">
+          <Calendar size={14} color="var(--text-secondary)" />
+          <select
+            value={currentMonth}
+            onChange={e => setCurrentMonth(e.target.value)}
+          >
+            {monthOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <button 
+          onClick={signOut} 
+          className="btn btn-ghost btn-icon" 
+          style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          aria-label="Log Out"
         >
-          {monthOptions.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   )
@@ -44,7 +91,8 @@ function BottomNav() {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
-    { path: '/verification', icon: ShieldCheck, label: 'Verification' },
+    { path: '/verification', icon: ShieldCheck, label: 'Verify' },
+    { path: '/security', icon: Shield, label: 'Security' },
   ]
 
   return (
@@ -66,21 +114,21 @@ function BottomNav() {
 
 function Sidebar() {
   const { currentMonth, setCurrentMonth, monthOptions } = useApp()
+  const { signOut } = useAuth()
 
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
     { path: '/verification', icon: ShieldCheck, label: 'Verification' },
+    { path: '/security', icon: Shield, label: 'Security' },
   ]
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">
-            <Wallet size={20} color="white" />
-          </div>
+          <img src="/logo.svg" alt="Accountify Logo" className="sidebar-logo-icon" />
           <div className="sidebar-logo-text">
             <h1>Accountify</h1>
             <p>Personal Finance</p>
@@ -100,6 +148,15 @@ function Sidebar() {
             {item.label}
           </NavLink>
         ))}
+
+        <button 
+          onClick={signOut} 
+          className="nav-item logout-btn" 
+          style={{ border: 'none', background: 'transparent', width: '100%', textAlign: 'left' }}
+        >
+          <LogOut size={20} />
+          Log Out
+        </button>
       </nav>
 
       <div className="sidebar-month">
@@ -134,6 +191,7 @@ function AppLayout() {
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/verification" element={<Verification />} />
+          <Route path="/security" element={<Security />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -147,9 +205,21 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppProvider>
-        <AppLayout />
-      </AppProvider>
+      <AuthProvider>
+        <AppProvider>
+          <Routes>
+            <Route path="/login" element={<LoginRoute />} />
+            <Route 
+              path="/*" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </AppProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

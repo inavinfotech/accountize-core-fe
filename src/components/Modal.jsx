@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 export default function Modal({ title, children, onClose, size }) {
@@ -12,17 +13,19 @@ export default function Modal({ title, children, onClose, size }) {
     }
   }, [onClose])
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className={`modal ${size === 'large' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{title}</h3>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} type="button">
             <X size={18} />
           </button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
+

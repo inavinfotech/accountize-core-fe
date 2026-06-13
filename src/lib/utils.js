@@ -76,3 +76,23 @@ export function getInitials(name) {
     .toUpperCase()
     .slice(0, 2)
 }
+
+export function exportToCSV(filename, headers, rows) {
+  const content = [
+    headers.join(','),
+    ...rows.map(r => r.map(val => {
+      const stringVal = val === null || val === undefined ? '' : String(val)
+      return `"${stringVal.replace(/"/g, '""')}"`
+    }).join(','))
+  ].join('\n')
+  
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.setAttribute("href", url)
+  link.setAttribute("download", filename)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}

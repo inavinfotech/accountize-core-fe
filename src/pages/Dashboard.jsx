@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { getDashboardData } from '../lib/db'
-import { formatCurrency, getAmountClass, getDaysInMonth } from '../lib/utils'
+import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
+import InfoButton from '../components/InfoButton'
 import {
   Wallet, TrendingUp, TrendingDown, Banknote, CreditCard,
-  ShieldCheck, ShieldAlert, ArrowUpRight, ArrowDownRight, PiggyBank
+  ShieldCheck, ShieldAlert, ArrowUpRight, ArrowDownRight, PiggyBank, Download
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -32,6 +33,29 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleExportMonthlySummary = () => {
+    if (!data) return
+    const headers = ['Category', 'Item/Account', 'Amount / Balance (₹)', 'Type']
+    const rows = [
+      ['Summary', 'Total Assets', data.totalAssets, 'Asset'],
+      ['Summary', 'Total Liabilities', data.totalPayables, 'Liability'],
+      ['Summary', 'Net Available Balance', data.availableBalance, 'Net Balance'],
+      ['Summary', 'Cash Balance', data.cashBalance, 'Self'],
+      ['Summary', 'Online Balance', data.onlineBalance, 'Self'],
+      ['Summary', 'Bank Balance', data.bankBalance, 'Self'],
+      ['Summary', 'Monthly Spend Total', data.totalExpenses, 'Spend'],
+      ['Summary', 'Daily Avg Spend', data.perDayAvg, 'Spend'],
+      [],
+      ['Account Details', 'Name', 'Balance (₹)', 'Type']
+    ]
+    
+    data.balances.forEach(acc => {
+      rows.push(['Account Details', acc.name, acc.balance, acc.type])
+    })
+    
+    exportToCSV(`monthly_summary_${currentMonth}.csv`, headers, rows)
   }
 
   if (loading) {
@@ -78,10 +102,13 @@ export default function Dashboard() {
     const dateKey = e.date
     expenseByDate[dateKey] = (expenseByDate[dateKey] || 0) + e.amount
   })
-  const chartData = Object.entries(expenseByDate).map(([date, amount]) => ({
-    date: new Date(date).getDate(),
-    amount
-  })).sort((a, b) => a.date - b.date)
+  const chartData = Object.entries(expenseByDate).map(([date, amount]) => {
+    const day = parseInt(date.split('-')[2], 10)
+    return {
+      date: day,
+      amount
+    }
+  }).sort((a, b) => a.date - b.date)
 
   // Pie data for receivables
   const pieData = data.receivables
@@ -91,8 +118,20 @@ export default function Dashboard() {
   return (
     <div className="animate-in">
       <div className="page-header">
-        <h2>Dashboard</h2>
-        <p>Your financial overview at a glance</p>
+        <div>
+          <h2>Dashboard</h2>
+          <p>Your financial overview at a glance</p>
+        </div>
+        {data && (
+          <button
+            className="btn btn-secondary btn-sm btn-mobile-icon"
+            type="button"
+            onClick={handleExportMonthlySummary}
+            title="Export Backup"
+          >
+            <Download size={14} /> <span className="btn-text">Export Backup</span>
+          </button>
+        )}
       </div>
 
       {/* Verification Banner */}
@@ -114,7 +153,10 @@ export default function Dashboard() {
       <div className="stats-grid">
         <div className="stat-card green">
           <div className="stat-card-icon green"><Wallet size={20} /></div>
-          <div className="stat-card-label">Available Balance</div>
+          <div className="stat-card-label">
+            Available Balance
+            <InfoButton metricId="availableBalance" contextValues={data} />
+          </div>
           <div className={`stat-card-value ${getAmountClass(data.availableBalance)}`}>
             {formatCurrency(data.availableBalance)}
           </div>
@@ -122,7 +164,10 @@ export default function Dashboard() {
 
         <div className="stat-card blue">
           <div className="stat-card-icon blue"><TrendingUp size={20} /></div>
-          <div className="stat-card-label">Total Receivables</div>
+          <div className="stat-card-label">
+            Total Receivables
+            <InfoButton metricId="totalReceivables" contextValues={data} />
+          </div>
           <div className="stat-card-value positive">
             {formatCurrency(data.totalReceivables)}
           </div>
@@ -130,7 +175,10 @@ export default function Dashboard() {
 
         <div className="stat-card red">
           <div className="stat-card-icon red"><TrendingDown size={20} /></div>
-          <div className="stat-card-label">Total Payables</div>
+          <div className="stat-card-label">
+            Total Payables
+            <InfoButton metricId="totalPayables" contextValues={data} />
+          </div>
           <div className="stat-card-value negative">
             {formatCurrency(data.totalPayables)}
           </div>
@@ -138,19 +186,28 @@ export default function Dashboard() {
 
         <div className="stat-card amber">
           <div className="stat-card-icon amber"><Banknote size={20} /></div>
-          <div className="stat-card-label">Cash in Hand</div>
+          <div className="stat-card-label">
+            Cash in Hand
+            <InfoButton metricId="cashBalance" contextValues={data} />
+          </div>
           <div className="stat-card-value">{formatCurrency(data.cashBalance)}</div>
         </div>
 
         <div className="stat-card purple">
           <div className="stat-card-icon purple"><CreditCard size={20} /></div>
-          <div className="stat-card-label">Online Balance</div>
+          <div className="stat-card-label">
+            Online Balance
+            <InfoButton metricId="onlineBalance" contextValues={data} />
+          </div>
           <div className="stat-card-value">{formatCurrency(data.onlineBalance)}</div>
         </div>
 
         <div className="stat-card indigo">
           <div className="stat-card-icon indigo"><PiggyBank size={20} /></div>
-          <div className="stat-card-label">Other Banks</div>
+          <div className="stat-card-label">
+            Other Banks
+            <InfoButton metricId="bankBalance" contextValues={data} />
+          </div>
           <div className="stat-card-value">{formatCurrency(data.bankBalance)}</div>
         </div>
       </div>
@@ -161,7 +218,10 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title">Daily Expenses</div>
+              <div className="card-title">
+                Daily Expenses
+                <InfoButton metricId="dailyExpenses" contextValues={data} />
+              </div>
               <div className="card-subtitle">Spending trend this month</div>
             </div>
           </div>
@@ -201,7 +261,10 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title">Receivables Breakdown</div>
+              <div className="card-title">
+                Receivables Breakdown
+                <InfoButton metricId="receivablesBreakdown" contextValues={data} />
+              </div>
               <div className="card-subtitle">Who owes you money</div>
             </div>
           </div>
@@ -286,25 +349,37 @@ export default function Dashboard() {
         </div>
         <div className="stats-grid" style={{ marginBottom: 0 }}>
           <div style={{ padding: '12px 0' }}>
-            <div className="stat-card-label">Total Spent</div>
+            <div className="stat-card-label">
+              Total Spent
+              <InfoButton metricId="totalExpenses" contextValues={data} />
+            </div>
             <div className="stat-card-value" style={{ fontSize: '1.25rem', color: 'var(--red)' }}>
               {formatCurrency(data.totalExpenses)}
             </div>
           </div>
           <div style={{ padding: '12px 0' }}>
-            <div className="stat-card-label">Per Day Average</div>
+            <div className="stat-card-label">
+              Per Day Average
+              <InfoButton metricId="perDayAvg" contextValues={data} />
+            </div>
             <div className="stat-card-value" style={{ fontSize: '1.25rem' }}>
               {formatCurrency(data.perDayAvg)}
             </div>
           </div>
           <div style={{ padding: '12px 0' }}>
-            <div className="stat-card-label">Days Tracked</div>
+            <div className="stat-card-label">
+              Days Tracked
+              <InfoButton metricId="daysTracked" contextValues={data} />
+            </div>
             <div className="stat-card-value" style={{ fontSize: '1.25rem', color: 'var(--blue)' }}>
               {data.daysTracked} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {daysInMonth}</span>
             </div>
           </div>
           <div style={{ padding: '12px 0' }}>
-            <div className="stat-card-label">Monthly Estimate</div>
+            <div className="stat-card-label">
+              Monthly Estimate
+              <InfoButton metricId="monthEstimate" contextValues={data} />
+            </div>
             <div className="stat-card-value" style={{ fontSize: '1.25rem', color: 'var(--amber)' }}>
               {formatCurrency(estimatedMonthly)}
             </div>

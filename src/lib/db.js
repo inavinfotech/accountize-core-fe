@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 
+let activeMonthsCache = null
+
 // ============ ACCOUNTS ============
 
 export async function getAccounts() {
@@ -95,6 +97,7 @@ export async function createTransaction(transaction) {
     .select('*, accounts(name, type)')
     .single()
   if (error) throw error
+  activeMonthsCache = null
   return data
 }
 
@@ -104,6 +107,7 @@ export async function deleteTransaction(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  activeMonthsCache = null
 }
 
 export async function updateTransaction(id, updates) {
@@ -114,6 +118,7 @@ export async function updateTransaction(id, updates) {
     .select('*, accounts(name, type)')
     .single()
   if (error) throw error
+  activeMonthsCache = null
   return data
 }
 
@@ -156,6 +161,7 @@ export async function createExpense(expense) {
     .select()
     .single()
   if (error) throw error
+  activeMonthsCache = null
   return data
 }
 
@@ -170,6 +176,7 @@ export async function createExpenses(expensesList) {
     .insert(listWithTime)
     .select()
   if (error) throw error
+  activeMonthsCache = null
   return data
 }
 
@@ -179,6 +186,7 @@ export async function deleteExpense(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  activeMonthsCache = null
 }
 
 export async function updateExpense(id, updates) {
@@ -189,6 +197,7 @@ export async function updateExpense(id, updates) {
     .select()
     .single()
   if (error) throw error
+  activeMonthsCache = null
   return data
 }
 
@@ -310,6 +319,10 @@ export async function getDashboardData(monthYear) {
 }
 
 export async function getActiveMonths() {
+  if (activeMonthsCache) {
+    return activeMonthsCache
+  }
+
   const { data: txns, error: txnErr } = await supabase
     .from('transactions')
     .select('month_year')
@@ -351,12 +364,14 @@ export async function getActiveMonths() {
 
   const sortedMonths = Array.from(monthsSet).sort().reverse()
   
-  return sortedMonths.map(value => {
+  activeMonthsCache = sortedMonths.map(value => {
     const [year, month] = value.split('-').map(Number)
     const d = new Date(year, month - 1, 1)
     const label = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
     return { value, label }
   })
+
+  return activeMonthsCache
 }
 
 // ============ SETTINGS ============
@@ -367,14 +382,9 @@ export async function getSetting(key, defaultValue = '') {
       .from('settings')
       .select('value')
       .eq('key', key)
-      .single()
+      .maybeSingle()
     
-    if (error) {
-      if (error.code === 'PGRST116') { // Single row not found
-        return defaultValue
-      }
-      throw error
-    }
+    if (error) throw error
     return data?.value || defaultValue
   } catch (err) {
     console.warn(`Settings query for '${key}' failed:`, err)
@@ -384,9 +394,17 @@ export async function getSetting(key, defaultValue = '') {
 
 export async function setSetting(key, value) {
   try {
+    const { data: { user }, error: userErr } = await supabase.auth.getUser()
+    if (userErr || !user) throw new Error('User not authenticated')
+
     const { error } = await supabase
       .from('settings')
-      .upsert({ key, value, updated_at: new Date().toISOString() })
+      .upsert({ 
+        user_id: user.id,
+        key, 
+        value, 
+        updated_at: new Date().toISOString() 
+      })
     
     if (error) throw error
   } catch (err) {

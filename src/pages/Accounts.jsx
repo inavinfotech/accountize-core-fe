@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction } from '../lib/db'
-import { formatCurrency, getAmountClass, getInitials, formatDate } from '../lib/utils'
+import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
+import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Users, ArrowUpRight, ArrowDownRight, 
-  UserPlus, Wallet, ChevronDown, ChevronUp, Receipt
+  UserPlus, Wallet, ChevronDown, ChevronUp, Receipt, Download
 } from 'lucide-react'
 
 export default function Accounts() {
@@ -65,7 +66,7 @@ export default function Accounts() {
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
     if (todayStr === currentMonth) {
-      return today.toISOString().split('T')[0]
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     }
     return `${currentMonth}-01`
   }
@@ -116,6 +117,17 @@ export default function Accounts() {
     } catch (err) {
       console.error('Failed to delete transaction:', err)
     }
+  }
+
+  const handleExportLedger = (account) => {
+    const txns = account.transactions || []
+    const headers = ['Date', 'Description', 'Amount (₹)']
+    const rows = txns.map(t => [
+      formatDate(t.created_at),
+      t.description || '',
+      t.amount
+    ])
+    exportToCSV(`${account.name}_ledger_${currentMonth}.csv`, headers, rows)
   }
 
   const filtered = accounts.filter(a => a.type === activeTab)
@@ -181,6 +193,7 @@ export default function Accounts() {
         <div>
           <div className="stat-card-label">
             Total {activeTab === 'receivable' ? 'Owed to You' : activeTab === 'payable' ? 'You Owe' : 'Your Balance'}
+            <InfoButton metricId="accountsTabSummary" contextValues={{ tabName: activeTab, totalBalance }} />
           </div>
           <div className={`stat-card-value ${getAmountClass(totalBalance, activeTab)}`}>
             {formatCurrency(totalBalance)}
@@ -268,8 +281,12 @@ export default function Accounts() {
                   </div>
                 </div>
                 <div className="account-meta">
-                  <span className={`amount ${getAmountClass(account.balance, account.type)}`} style={{ fontSize: '1.1rem' }}>
+                  <span className={`amount ${getAmountClass(account.balance, account.type)}`} style={{ fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center' }}>
                     {formatCurrency(account.balance)}
+                    <InfoButton 
+                      metricId="accountBalance" 
+                      contextValues={{ accountName: account.name, balance: account.balance, txnCount: account.transactions?.length || 0 }} 
+                    />
                   </span>
                   {expandedAccount === account.id ? <ChevronUp size={18} color="var(--text-muted)" /> : <ChevronDown size={18} color="var(--text-muted)" />}
                 </div>
@@ -360,22 +377,33 @@ export default function Accounts() {
                     </table>
                   </div>
 
-                  {/* Add Transaction Button */}
-                  <div className="account-actions">
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenAddTransaction(account.id)}>
-                      <Plus size={14} /> Add Transaction
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => setDeleteConfirm({
-                        type: 'account',
-                        id: account.id,
-                        label: account.name
-                      })}
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  </div>
+                   <div className="account-actions">
+                     <button
+                       className="btn btn-secondary btn-sm btn-mobile-icon"
+                       onClick={() => handleOpenAddTransaction(account.id)}
+                       title="Add Transaction"
+                     >
+                       <Plus size={14} /> <span className="btn-text">Add Transaction</span>
+                     </button>
+                     <button
+                       className="btn btn-secondary btn-sm btn-mobile-icon"
+                       onClick={() => handleExportLedger(account)}
+                       title="Export Ledger"
+                     >
+                       <Download size={14} /> <span className="btn-text">Export Ledger</span>
+                     </button>
+                     <button
+                       className="btn btn-danger btn-sm btn-mobile-icon"
+                       onClick={() => setDeleteConfirm({
+                         type: 'account',
+                         id: account.id,
+                         label: account.name
+                       })}
+                       title="Delete"
+                     >
+                       <Trash2 size={14} /> <span className="btn-text">Delete</span>
+                     </button>
+                   </div>
                 </div>
               )}
             </div>

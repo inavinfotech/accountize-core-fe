@@ -447,29 +447,18 @@ export async function deleteSharedLink(accountId) {
 }
 
 export async function getSharedLedger(token) {
-  // Look up the shared link by token (public read)
-  const { data: link, error: linkError } = await supabase
-    .from('shared_links')
-    .select('*, accounts(id, name, type)')
-    .eq('token', token)
-    .maybeSingle()
-  if (linkError) throw linkError
-  if (!link) return null
+  const { data, error } = await supabase
+    .rpc('get_shared_ledger', { link_token: token })
+  if (error) throw error
+  if (!data) return null
 
-  // Fetch all transactions for this account (public read via RLS)
-  const { data: transactions, error: txnError } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('account_id', link.account_id)
-    .order('created_at', { ascending: true })
-  if (txnError) throw txnError
-
-  const balance = (transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0)
+  const balance = (data.transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0)
 
   return {
-    account: link.accounts,
-    transactions: transactions || [],
+    account: data.account,
+    transactions: data.transactions || [],
     balance,
-    sharedAt: link.created_at
+    sharedAt: data.sharedAt
   }
 }
+

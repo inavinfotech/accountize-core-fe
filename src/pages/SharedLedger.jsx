@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { getSharedLedger } from '../lib/db'
 import { formatCurrency, formatDate, getInitials } from '../lib/utils'
-import { ArrowUpRight, FileText, AlertTriangle } from 'lucide-react'
+import { ArrowDownRight, FileText, AlertTriangle } from 'lucide-react'
 
 export default function SharedLedger() {
   const { token } = useParams()
@@ -117,9 +117,9 @@ export default function SharedLedger() {
             </div>
             <div className="shared-ledger-account-info">
               <h2 className="shared-ledger-account-name">{account.name}</h2>
-              <div className="shared-ledger-badge">
-                <ArrowUpRight size={12} />
-                Receivable Account
+              <div className="shared-ledger-badge" style={{ background: 'var(--red-bg)', color: 'var(--red)', borderColor: 'var(--red-border)' }}>
+                <ArrowDownRight size={12} />
+                Payable Account
               </div>
             </div>
           </div>
@@ -128,7 +128,7 @@ export default function SharedLedger() {
           <div className="shared-ledger-balance-strip">
             <div className="shared-ledger-balance-item">
               <span className="shared-ledger-balance-label">Total Balance</span>
-              <span className={`shared-ledger-balance-value ${balance > 0 ? 'positive' : balance < 0 ? 'negative' : ''}`}>
+              <span className={`shared-ledger-balance-value ${balance > 0 ? 'negative' : balance < 0 ? 'positive' : ''}`}>
                 {formatCurrency(balance)}
               </span>
             </div>
@@ -175,7 +175,7 @@ export default function SharedLedger() {
                           textAlign: 'right',
                           fontWeight: 600,
                           fontVariantNumeric: 'tabular-nums',
-                          color: txn.amount > 0 ? 'var(--green)' : txn.amount < 0 ? 'var(--red)' : 'var(--text-primary)'
+                          color: txn.amount > 0 ? 'var(--red)' : txn.amount < 0 ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {formatCurrency(Math.abs(txn.amount))}
                         </td>
@@ -185,7 +185,7 @@ export default function SharedLedger() {
                           textAlign: 'right',
                           fontWeight: 600,
                           fontVariantNumeric: 'tabular-nums',
-                          color: txn.runningBalance > 0 ? 'var(--green)' : txn.runningBalance < 0 ? 'var(--red)' : 'var(--text-primary)'
+                          color: txn.runningBalance > 0 ? 'var(--red)' : txn.runningBalance < 0 ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {formatCurrency(txn.runningBalance)}
                         </td>
@@ -206,12 +206,13 @@ export default function SharedLedger() {
           {transactions.length > 0 && (
             <div className="shared-ledger-total">
               <span>Net Balance</span>
-              <span className={balance > 0 ? 'positive' : balance < 0 ? 'negative' : ''}>
+              <span className={balance > 0 ? 'negative' : balance < 0 ? 'positive' : ''}>
                 {formatCurrency(balance)}
               </span>
             </div>
           )}
         </div>
+
 
         {/* Footer */}
         <div className="shared-ledger-footer">

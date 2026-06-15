@@ -51,7 +51,6 @@ function LoginRoute() {
 
 function TopBar() {
   const { currentMonth, setCurrentMonth, monthOptions } = useApp()
-  const { signOut } = useAuth()
 
   return (
     <header className="mobile-header">
@@ -74,14 +73,6 @@ function TopBar() {
             ))}
           </select>
         </div>
-        <button 
-          onClick={signOut} 
-          className="btn btn-ghost btn-icon" 
-          style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          aria-label="Log Out"
-        >
-          <LogOut size={18} />
-        </button>
       </div>
     </header>
   )
@@ -115,7 +106,6 @@ function BottomNav() {
 
 function Sidebar() {
   const { currentMonth, setCurrentMonth, monthOptions } = useApp()
-  const { signOut } = useAuth()
 
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -149,15 +139,6 @@ function Sidebar() {
             {item.label}
           </NavLink>
         ))}
-
-        <button 
-          onClick={signOut} 
-          className="nav-item logout-btn" 
-          style={{ border: 'none', background: 'transparent', width: '100%', textAlign: 'left' }}
-        >
-          <LogOut size={20} />
-          Log Out
-        </button>
       </nav>
 
       <div className="sidebar-month">

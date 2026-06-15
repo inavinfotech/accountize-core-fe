@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   Shield, ShieldCheck, ShieldAlert, Smartphone, Copy, Check,
-  Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock
+  Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock, LogOut
 } from 'lucide-react'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 
 export default function Security() {
-  const { user, enrollMFA, challengeAndVerifyMFA, unenrollMFA, getMFAFactors } = useAuth()
+  const { user, enrollMFA, challengeAndVerifyMFA, unenrollMFA, getMFAFactors, signOut } = useAuth()
 
   const [factors, setFactors] = useState([])
   const [loading, setLoading] = useState(true)
@@ -292,6 +292,28 @@ export default function Security() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Logout Section */}
+      <div className="security-section">
+        <div className="card">
+          <div className="security-section-header">
+            <div className="security-section-icon red" style={{ background: 'var(--red-bg)', color: 'var(--red)' }}>
+              <LogOut size={20} />
+            </div>
+            <div>
+              <div className="security-section-title">Sign Out</div>
+              <div className="security-section-desc">Sign out of your Accountify session on this device</div>
+            </div>
+          </div>
+          <button 
+            className="btn btn-danger" 
+            onClick={signOut}
+            style={{ alignSelf: 'flex-start', marginTop: 12 }}
+          >
+            <LogOut size={16} /> Log Out
+          </button>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getDashboardData } from '../lib/db'
+import { getDashboardData, getSetting } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
 import InfoButton from '../components/InfoButton'
 import {
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, ReferenceLine
 } from 'recharts'
 
 const PIE_COLORS = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
@@ -18,6 +18,7 @@ export default function Dashboard() {
   const { currentMonth, refreshKey } = useApp()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [dailyBudget, setDailyBudget] = useState(0)
 
   useEffect(() => {
     loadData()
@@ -28,6 +29,8 @@ export default function Dashboard() {
       setLoading(true)
       const d = await getDashboardData(currentMonth)
       setData(d)
+      const budget = await getSetting('target_per_day_budget', '0')
+      setDailyBudget(parseFloat(budget) || 0)
     } catch (err) {
       console.error('Failed to load dashboard:', err)
     } finally {
@@ -242,6 +245,21 @@ export default function Dashboard() {
                   formatter={(value) => [formatCurrency(value), 'Spent']}
                 />
                 <Bar dataKey="amount" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                {dailyBudget > 0 && (
+                  <ReferenceLine
+                    y={dailyBudget}
+                    stroke="#ef4444"
+                    strokeDasharray="6 4"
+                    strokeWidth={2}
+                    label={{
+                      value: `Budget ₹${dailyBudget}`,
+                      position: 'right',
+                      fill: '#ef4444',
+                      fontSize: 10,
+                      fontWeight: 600
+                    }}
+                  />
+                )}
                 <defs>
                   <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#7c3aed" />

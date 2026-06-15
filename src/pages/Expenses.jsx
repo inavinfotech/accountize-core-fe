@@ -108,7 +108,7 @@ export default function Expenses() {
       setLoading(true)
       const data = await getExpenses(currentMonth)
       setExpenses(data)
-      const budget = await getSetting('target_per_day_budget', '248')
+      const budget = await getSetting('target_per_day_budget', '0')
       setEstimatePerDay(budget)
     } catch (err) {
       console.error('Failed to load expenses:', err)

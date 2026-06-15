@@ -411,3 +411,65 @@ export async function setSetting(key, value) {
     console.error(`Failed to save setting '${key}' to database:`, err)
   }
 }
+
+// ============ SHARED LINKS ============
+
+export async function getSharedLink(accountId) {
+  const { data, error } = await supabase
+    .from('shared_links')
+    .select('*')
+    .eq('account_id', accountId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function createSharedLink(accountId) {
+  // Check if one already exists
+  const existing = await getSharedLink(accountId)
+  if (existing) return existing
+
+  const { data, error } = await supabase
+    .from('shared_links')
+    .insert({ account_id: accountId })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteSharedLink(accountId) {
+  const { error } = await supabase
+    .from('shared_links')
+    .delete()
+    .eq('account_id', accountId)
+  if (error) throw error
+}
+
+export async function getSharedLedger(token) {
+  // Look up the shared link by token (public read)
+  const { data: link, error: linkError } = await supabase
+    .from('shared_links')
+    .select('*, accounts(id, name, type)')
+    .eq('token', token)
+    .maybeSingle()
+  if (linkError) throw linkError
+  if (!link) return null
+
+  // Fetch all transactions for this account (public read via RLS)
+  const { data: transactions, error: txnError } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('account_id', link.account_id)
+    .order('created_at', { ascending: true })
+  if (txnError) throw txnError
+
+  const balance = (transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0)
+
+  return {
+    account: link.accounts,
+    transactions: transactions || [],
+    balance,
+    sharedAt: link.created_at
+  }
+}

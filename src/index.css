@@ -1852,5 +1852,286 @@ tbody tr:last-child td {
   }
 }
 
+/* ===== SHARED LEDGER PUBLIC PAGE ===== */
+.shared-ledger-page {
+  min-height: 100vh;
+  width: 100%;
+  background: radial-gradient(circle at 15% 25%, rgba(99, 102, 241, 0.06) 0%, transparent 45%),
+              radial-gradient(circle at 85% 75%, rgba(59, 130, 246, 0.06) 0%, transparent 45%),
+              var(--bg-primary);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px 48px;
+}
+
+.shared-ledger-container {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.shared-ledger-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.shared-ledger-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-glow);
+  object-fit: cover;
+}
+
+.shared-ledger-brand-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.shared-ledger-brand-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.shared-ledger-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.shared-ledger-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, rgba(59, 130, 246, 0.03) 100%);
+}
+
+.shared-ledger-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-glow);
+}
+
+.shared-ledger-account-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.shared-ledger-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid var(--green-border);
+}
+
+.shared-ledger-balance-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 20px 24px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.shared-ledger-balance-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.shared-ledger-balance-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.shared-ledger-balance-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.shared-ledger-balance-value.positive { color: var(--green); }
+.shared-ledger-balance-value.negative { color: var(--red); }
+
+.shared-ledger-balance-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border-color);
+}
+
+.shared-ledger-table-section {
+  padding: 20px 24px;
+}
+
+.shared-ledger-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.shared-ledger-section-title svg {
+  color: var(--accent-primary);
+}
+
+.shared-ledger-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+}
+
+.shared-ledger-empty svg {
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.shared-ledger-empty p {
+  font-size: 0.85rem;
+}
+
+.shared-ledger-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(59, 130, 246, 0.04) 100%);
+  border-top: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.shared-ledger-total .positive { color: var(--green); }
+.shared-ledger-total .negative { color: var(--red); }
+
+.shared-ledger-error {
+  text-align: center;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.shared-ledger-error-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--amber);
+}
+
+.shared-ledger-error h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.shared-ledger-error p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  max-width: 320px;
+}
+
+.shared-ledger-footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.shared-ledger-footer strong {
+  color: var(--text-secondary);
+}
+
+/* Shared ledger responsive */
+@media (max-width: 575px) {
+  .shared-ledger-page {
+    padding: 16px 12px 32px;
+  }
+
+  .shared-ledger-header {
+    padding: 16px 16px 14px;
+    gap: 12px;
+  }
+
+  .shared-ledger-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 0.85rem;
+  }
+
+  .shared-ledger-account-name {
+    font-size: 1.05rem;
+  }
+
+  .shared-ledger-balance-strip {
+    padding: 16px;
+    gap: 20px;
+  }
+
+  .shared-ledger-balance-value {
+    font-size: 1.2rem;
+  }
+
+  .shared-ledger-table-section {
+    padding: 16px;
+  }
+
+  .shared-ledger-total {
+    padding: 14px 16px;
+    font-size: 0.9rem;
+  }
+
+  .shared-ledger-error {
+    padding: 32px 16px;
+  }
+}
 
 

@@ -7,6 +7,7 @@ import Expenses from './pages/Expenses'
 import Verification from './pages/Verification'
 import Security from './pages/Security'
 import Login from './pages/Login'
+import SharedLedger from './pages/SharedLedger'
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
   Calendar, LogOut, Shield
@@ -209,6 +210,7 @@ export default function App() {
         <AppProvider>
           <Routes>
             <Route path="/login" element={<LoginRoute />} />
+            <Route path="/shared/:token" element={<SharedLedger />} />
             <Route 
               path="/*" 
               element={

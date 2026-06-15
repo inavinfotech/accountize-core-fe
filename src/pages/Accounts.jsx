@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction } from '../lib/db'
+import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink } from '../lib/db'
 import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Users, ArrowUpRight, ArrowDownRight, 
-  UserPlus, Wallet, ChevronDown, ChevronUp, Receipt, Download
+  UserPlus, Wallet, ChevronDown, ChevronUp, Receipt, Download,
+  Share2, LinkIcon, Link2Off, Check, Copy
 } from 'lucide-react'
 
 export default function Accounts() {
@@ -20,6 +21,8 @@ export default function Accounts() {
   const [activeTab, setActiveTab] = useState('receivable')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [editingTransaction, setEditingTransaction] = useState(null)
+  const [sharingAccount, setSharingAccount] = useState(null) // { accountId, token, loading, copied }
+  const [sharedLinks, setSharedLinks] = useState({}) // { accountId: token }
 
   // Form state
   const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable' })
@@ -34,6 +37,18 @@ export default function Accounts() {
       setLoading(true)
       const data = await getAccountBalances(currentMonth)
       setAccounts(data)
+      // Load shared links for receivable accounts
+      const receivables = data.filter(a => a.type === 'receivable')
+      const links = {}
+      for (const acc of receivables) {
+        try {
+          const link = await getSharedLink(acc.id)
+          if (link) links[acc.id] = link.token
+        } catch (err) {
+          // ignore
+        }
+      }
+      setSharedLinks(links)
     } catch (err) {
       console.error('Failed to load accounts:', err)
     } finally {
@@ -128,6 +143,38 @@ export default function Accounts() {
       t.amount
     ])
     exportToCSV(`${account.name}_ledger_${currentMonth}.csv`, headers, rows)
+  }
+
+  const handleShareAccount = async (accountId) => {
+    try {
+      setSharingAccount({ accountId, loading: true, copied: false })
+      const link = await createSharedLink(accountId)
+      const shareUrl = `${window.location.origin}/shared/${link.token}`
+      await navigator.clipboard.writeText(shareUrl)
+      setSharedLinks(prev => ({ ...prev, [accountId]: link.token }))
+      setSharingAccount({ accountId, token: link.token, loading: false, copied: true })
+      // Reset copied state after 3 seconds
+      setTimeout(() => {
+        setSharingAccount(prev => prev?.accountId === accountId ? { ...prev, copied: false } : prev)
+      }, 3000)
+    } catch (err) {
+      console.error('Failed to share account:', err)
+      setSharingAccount(null)
+    }
+  }
+
+  const handleRevokeShare = async (accountId) => {
+    try {
+      await deleteSharedLink(accountId)
+      setSharedLinks(prev => {
+        const updated = { ...prev }
+        delete updated[accountId]
+        return updated
+      })
+      setSharingAccount(null)
+    } catch (err) {
+      console.error('Failed to revoke shared link:', err)
+    }
   }
 
   const filtered = accounts.filter(a => a.type === activeTab)
@@ -392,6 +439,71 @@ export default function Accounts() {
                      >
                        <Download size={14} /> <span className="btn-text">Export Ledger</span>
                      </button>
+                     {account.type === 'receivable' && (
+                       <>
+                         {sharedLinks[account.id] ? (
+                           <>
+                             <button
+                               className="btn btn-sm btn-mobile-icon"
+                               style={{
+                                 background: 'var(--green-bg)',
+                                 color: 'var(--green)',
+                                 borderColor: 'var(--green-border)',
+                                 border: '1px solid var(--green-border)'
+                               }}
+                               onClick={() => {
+                                 const shareUrl = `${window.location.origin}/shared/${sharedLinks[account.id]}`
+                                 navigator.clipboard.writeText(shareUrl)
+                                 setSharingAccount({ accountId: account.id, token: sharedLinks[account.id], loading: false, copied: true })
+                                 setTimeout(() => {
+                                   setSharingAccount(prev => prev?.accountId === account.id ? { ...prev, copied: false } : prev)
+                                 }, 3000)
+                               }}
+                               title="Copy Share Link"
+                             >
+                               {sharingAccount?.accountId === account.id && sharingAccount?.copied
+                                 ? <><Check size={14} /> <span className="btn-text">Copied!</span></>
+                                 : <><Copy size={14} /> <span className="btn-text">Copy Link</span></>
+                               }
+                             </button>
+                             <button
+                               className="btn btn-sm btn-mobile-icon"
+                               style={{
+                                 background: 'var(--red-bg)',
+                                 color: 'var(--red)',
+                                 borderColor: 'var(--red-border)',
+                                 border: '1px solid var(--red-border)'
+                               }}
+                               onClick={() => handleRevokeShare(account.id)}
+                               title="Revoke Share Link"
+                             >
+                               <Link2Off size={14} /> <span className="btn-text">Revoke Link</span>
+                             </button>
+                           </>
+                         ) : (
+                           <button
+                             className="btn btn-sm btn-mobile-icon"
+                             style={{
+                               background: 'var(--indigo-bg)',
+                               color: 'var(--indigo)',
+                               borderColor: 'var(--indigo-border)',
+                               border: '1px solid var(--indigo-border)'
+                             }}
+                             onClick={() => handleShareAccount(account.id)}
+                             disabled={sharingAccount?.accountId === account.id && sharingAccount?.loading}
+                             title="Share Receivable"
+                           >
+                             <Share2 size={14} />
+                             <span className="btn-text">
+                               {sharingAccount?.accountId === account.id && sharingAccount?.loading
+                                 ? 'Sharing...'
+                                 : 'Share'
+                               }
+                             </span>
+                           </button>
+                         )}
+                       </>
+                     )}
                      <button
                        className="btn btn-danger btn-sm btn-mobile-icon"
                        onClick={() => setDeleteConfirm({

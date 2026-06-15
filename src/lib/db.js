@@ -59,21 +59,6 @@ export async function getTransactions(monthYear) {
   return data
 }
 
-export async function getTransactionsUpTo(monthYear) {
-  let query = supabase
-    .from('transactions')
-    .select('*, accounts(name, type)')
-    .order('created_at', { ascending: false })
-  
-  if (monthYear) {
-    query = query.lte('month_year', monthYear)
-  }
-  
-  const { data, error } = await query
-  if (error) throw error
-  return data
-}
-
 export async function getTransactionsByAccount(accountId, monthYear) {
   let query = supabase
     .from('transactions')
@@ -133,20 +118,6 @@ export async function getExpenses(monthYear) {
   
   if (monthYear) {
     query = query.eq('month_year', monthYear)
-  }
-  
-  const { data, error } = await query
-  if (error) throw error
-  return data
-}
-
-export async function getExpensesUpTo(monthYear) {
-  let query = supabase
-    .from('expenses')
-    .select('*')
-  
-  if (monthYear) {
-    query = query.lte('month_year', monthYear)
   }
   
   const { data, error } = await query
@@ -226,23 +197,20 @@ export async function upsertMonthlySummary(summary) {
 // ============ COMPUTED HELPERS ============
 
 export async function getAccountBalances(monthYear) {
-  // Get all accounts
-  const accounts = await getAccounts()
+  // Get all accounts with balances from RPC
+  const { data: accounts, error: accountErr } = await supabase
+    .rpc('get_account_balances_up_to', { month_year_param: monthYear })
+  if (accountErr) throw accountErr
   
-  // Get all transactions up to this month
-  const allTransactions = await getTransactionsUpTo(monthYear)
+  // Get current month transactions
+  const currentTransactions = await getTransactions(monthYear)
   
-  // Calculate net balance per account
+  // Map current transactions to each account
   const balances = accounts.map(account => {
-    // Current month transactions (filtered for display)
-    const currentTxns = allTransactions.filter(t => t.account_id === account.id && t.month_year === monthYear)
-    // All transactions up to this month (for total balance)
-    const cumulativeTxns = allTransactions.filter(t => t.account_id === account.id)
-    const total = cumulativeTxns.reduce((sum, t) => sum + (t.amount || 0), 0)
+    const currentTxns = currentTransactions.filter(t => t.account_id === account.id)
     return {
       ...account,
-      transactions: currentTxns,
-      balance: total
+      transactions: currentTxns
     }
   })
   
@@ -252,7 +220,12 @@ export async function getAccountBalances(monthYear) {
 export async function getDashboardData(monthYear) {
   const balances = await getAccountBalances(monthYear)
   const expenses = await getExpenses(monthYear)
-  const allExpensesUpTo = await getExpensesUpTo(monthYear)
+  
+  // Call server-side function to get total expenses up to this month
+  const { data: totalExpensesUpTo, error: expErr } = await supabase
+    .rpc('get_total_expenses_up_to', { month_year_param: monthYear })
+  if (expErr) throw expErr
+  
   const summary = await getMonthlySummary(monthYear)
   
   const receivables = balances.filter(a => a.type === 'receivable')
@@ -262,7 +235,6 @@ export async function getDashboardData(monthYear) {
   const totalReceivables = receivables.reduce((s, a) => s + a.balance, 0)
   const totalPayables = payables.reduce((s, a) => s + a.balance, 0)
   const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0)
-  const totalExpensesUpTo = allExpensesUpTo.reduce((s, e) => s + (e.amount || 0), 0)
   
   const daysTracked = new Set(expenses.map(e => e.date)).size
   const perDayAvg = daysTracked > 0 ? totalExpenses / daysTracked : 0
@@ -323,15 +295,9 @@ export async function getActiveMonths() {
     return activeMonthsCache
   }
 
-  const { data: txns, error: txnErr } = await supabase
-    .from('transactions')
-    .select('month_year')
-  if (txnErr) throw txnErr
-
-  const { data: exps, error: expErr } = await supabase
-    .from('expenses')
-    .select('date')
-  if (expErr) throw expErr
+  const { data, error } = await supabase
+    .rpc('get_active_months')
+  if (error) throw error
 
   const monthsSet = new Set()
   
@@ -345,19 +311,10 @@ export async function getActiveMonths() {
   const nextMonthStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
   monthsSet.add(nextMonthStr)
 
-  if (txns) {
-    txns.forEach(t => {
-      if (t.month_year) monthsSet.add(t.month_year)
-    })
-  }
-
-  if (exps) {
-    exps.forEach(e => {
-      if (e.date) {
-        const parts = e.date.split('-')
-        if (parts.length >= 2) {
-          monthsSet.add(`${parts[0]}-${parts[1]}`)
-        }
+  if (data) {
+    data.forEach(row => {
+      if (row.month_year) {
+        monthsSet.add(row.month_year)
       }
     })
   }

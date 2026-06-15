@@ -31,7 +31,7 @@ export default function Verification() {
         const manCash = d.summary.manual_cash || 0
         setManualBalance(manBal ? manBal.toString() : '')
         setManualCash(manCash ? manCash.toString() : '')
-        setManualOnline((manBal || manCash) ? (manBal - manCash).toString() : '')
+        setManualOnline((manBal || manCash) ? (Math.round((manBal - manCash) * 100) / 100).toString() : '')
       } else {
         setManualBalance('')
         setManualCash('')
@@ -48,21 +48,21 @@ export default function Verification() {
     setManualCash(val)
     const cashNum = parseFloat(val) || 0
     const onlineNum = parseFloat(manualOnline) || 0
-    setManualBalance((cashNum + onlineNum).toString())
+    setManualBalance((Math.round((cashNum + onlineNum) * 100) / 100).toString())
   }
 
   const handleOnlineChange = (val) => {
     setManualOnline(val)
     const cashNum = parseFloat(manualCash) || 0
     const onlineNum = parseFloat(val) || 0
-    setManualBalance((cashNum + onlineNum).toString())
+    setManualBalance((Math.round((cashNum + onlineNum) * 100) / 100).toString())
   }
 
   const handleTotalChange = (val) => {
     setManualBalance(val)
     const totNum = parseFloat(val) || 0
     const cashNum = parseFloat(manualCash) || 0
-    setManualOnline((totNum - cashNum).toString())
+    setManualOnline((Math.round((totNum - cashNum) * 100) / 100).toString())
   }
 
   async function handleSave() {

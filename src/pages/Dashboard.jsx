@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { getDashboardData, getSetting } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
@@ -40,6 +40,69 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+
+  const daysInMonth = getDaysInMonth(currentMonth)
+
+  const {
+    estimatedMonthly,
+    hasManualData,
+    verified,
+    faultAmount,
+    chartData,
+    pieData
+  } = useMemo(() => {
+    if (!data) {
+      return {
+        estimatedMonthly: 0,
+        hasManualData: false,
+        verified: true,
+        faultAmount: 0,
+        chartData: [],
+        pieData: []
+      }
+    }
+    const est = data.perDayAvg * daysInMonth
+    const manualData = data.summary && ((data.summary.manual_balance || 0) > 0 || (data.summary.manual_cash || 0) > 0)
+    const manualCashVal = data.summary?.manual_cash || 0
+    const manualOnlineVal = data.summary ? (data.summary.manual_balance || 0) - manualCashVal : 0
+
+    const isOnlineVerified = manualOnlineVal <= 0 || Math.abs(data.onlineBalance - manualOnlineVal) < 0.01
+    const isCashVerified = manualCashVal <= 0 || Math.abs(data.cashBalance - manualCashVal) < 0.01
+
+    const isVerified = !manualData || (isOnlineVerified && isCashVerified)
+    
+    let fault = 0
+    if (!isOnlineVerified) fault += Math.abs(data.onlineBalance - manualOnlineVal)
+    if (!isCashVerified) fault += Math.abs(data.cashBalance - manualCashVal)
+
+    // Chart data for daily expenses
+    const expenseByDate = {}
+    data.expenses.forEach(e => {
+      const dateKey = e.date
+      expenseByDate[dateKey] = (expenseByDate[dateKey] || 0) + e.amount
+    })
+    const chart = Object.entries(expenseByDate).map(([date, amount]) => {
+      const day = parseInt(date.split('-')[2], 10)
+      return {
+        date: day,
+        amount
+      }
+    }).sort((a, b) => a.date - b.date)
+
+    // Pie data for receivables
+    const pie = data.receivables
+      .filter(a => a.balance > 0)
+      .map(a => ({ name: a.name, value: a.balance }))
+
+    return {
+      estimatedMonthly: est,
+      hasManualData: manualData,
+      verified: isVerified,
+      faultAmount: fault,
+      chartData: chart,
+      pieData: pie
+    }
+  }, [data, currentMonth, daysInMonth])
 
   const handleExportMonthlySummary = () => {
     if (!data) return
@@ -85,41 +148,6 @@ export default function Dashboard() {
   }
 
   if (!data) return null
-
-  const daysInMonth = getDaysInMonth(currentMonth)
-  const estimatedMonthly = data.perDayAvg * daysInMonth
-  // Dynamically compute verification status using current database balances and saved manual entries to prevent stale database state
-  const hasManualData = data.summary && ((data.summary.manual_balance || 0) > 0 || (data.summary.manual_cash || 0) > 0)
-  const manualCashVal = data.summary?.manual_cash || 0
-  const manualOnlineVal = data.summary ? (data.summary.manual_balance || 0) - manualCashVal : 0
-
-  const isOnlineVerified = manualOnlineVal <= 0 || Math.abs(data.onlineBalance - manualOnlineVal) < 0.01
-  const isCashVerified = manualCashVal <= 0 || Math.abs(data.cashBalance - manualCashVal) < 0.01
-
-  const verified = !hasManualData || (isOnlineVerified && isCashVerified)
-  
-  let faultAmount = 0
-  if (!isOnlineVerified) faultAmount += Math.abs(data.onlineBalance - manualOnlineVal)
-  if (!isCashVerified) faultAmount += Math.abs(data.cashBalance - manualCashVal)
-
-  // Chart data for daily expenses
-  const expenseByDate = {}
-  data.expenses.forEach(e => {
-    const dateKey = e.date
-    expenseByDate[dateKey] = (expenseByDate[dateKey] || 0) + e.amount
-  })
-  const chartData = Object.entries(expenseByDate).map(([date, amount]) => {
-    const day = parseInt(date.split('-')[2], 10)
-    return {
-      date: day,
-      amount
-    }
-  }).sort((a, b) => a.date - b.date)
-
-  // Pie data for receivables
-  const pieData = data.receivables
-    .filter(a => a.balance > 0)
-    .map(a => ({ name: a.name, value: a.balance }))
 
   return (
     <div className="animate-in">

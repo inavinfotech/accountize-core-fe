@@ -1,13 +1,15 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import Dashboard from './pages/Dashboard'
-import Accounts from './pages/Accounts'
-import Expenses from './pages/Expenses'
-import Verification from './pages/Verification'
-import Security from './pages/Security'
-import Login from './pages/Login'
-import SharedLedger from './pages/SharedLedger'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Accounts = lazy(() => import('./pages/Accounts'))
+const Expenses = lazy(() => import('./pages/Expenses'))
+const Verification = lazy(() => import('./pages/Verification'))
+const Security = lazy(() => import('./pages/Security'))
+const Login = lazy(() => import('./pages/Login'))
+const SharedLedger = lazy(() => import('./pages/SharedLedger'))
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
   Calendar, LogOut, Shield
@@ -168,14 +170,20 @@ function AppLayout() {
 
       {/* Main content page area */}
       <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/verification" element={<Verification />} />
-          <Route path="/security" element={<Security />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={
+          <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="auth-spinner" style={{ width: '30px', height: '30px', borderWidth: '3px' }}></div>
+          </div>
+        }>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/accounts" element={<Accounts />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/verification" element={<Verification />} />
+            <Route path="/security" element={<Security />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Mobile-only bottom nav */}
@@ -189,18 +197,24 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppProvider>
-          <Routes>
-            <Route path="/login" element={<LoginRoute />} />
-            <Route path="/shared/:token" element={<SharedLedger />} />
-            <Route 
-              path="/*" 
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              } 
-            />
-          </Routes>
+          <Suspense fallback={
+            <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+              <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+            </div>
+          }>
+            <Routes>
+              <Route path="/login" element={<LoginRoute />} />
+              <Route path="/shared/:token" element={<SharedLedger />} />
+              <Route 
+                path="/*" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                } 
+              />
+            </Routes>
+          </Suspense>
         </AppProvider>
       </AuthProvider>
     </BrowserRouter>

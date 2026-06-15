@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting, updateExpense } from '../lib/db'
 import { formatCurrency, formatDate, getDaysInMonth, exportToCSV } from '../lib/utils'
@@ -25,6 +25,7 @@ export default function Expenses() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [draggedId, setDraggedId] = useState(null)
   const [dragOverId, setDragOverId] = useState(null)
+  const [visibleDatesCount, setVisibleDatesCount] = useState(10)
 
   const pendingUpdatesRef = useRef({})
   const debounceTimerRef = useRef(null)
@@ -88,6 +89,9 @@ export default function Expenses() {
   useEffect(() => {
     const isMonthChange = currentMonth !== prevMonth
     setPrevMonth(currentMonth)
+    if (isMonthChange) {
+      setVisibleDatesCount(10)
+    }
     loadExpenses(!isMonthChange && expenses.length > 0)
   }, [currentMonth, refreshKey])
 
@@ -270,41 +274,69 @@ export default function Expenses() {
   }
 
   // ===== Analytics (matching Excel formulas) =====
-  const totalSpend = expenses.reduce((s, e) => s + (e.amount || 0), 0)
-  const uniqueDays = new Set(expenses.map(e => e.date)).size
-  const perDayAvg = uniqueDays > 0 ? totalSpend / uniqueDays : 0
-  const daysInMonth = getDaysInMonth(currentMonth)
-  const monthEstimate = perDayAvg * daysInMonth
+  const {
+    totalSpend,
+    uniqueDays,
+    perDayAvg,
+    daysInMonth,
+    monthEstimate,
+    customEstimatePerDay,
+    customEstimateTotal,
+    overrun,
+    chartData,
+    groupedByDate,
+    sortedDates
+  } = useMemo(() => {
+    const total = expenses.reduce((s, e) => s + (e.amount || 0), 0)
+    const days = new Set(expenses.map(e => e.date)).size
+    const avg = days > 0 ? total / days : 0
+    const daysInMonth = getDaysInMonth(currentMonth)
+    const est = avg * daysInMonth
 
-  // Current estimate using custom per-day value (like Excel's K46)
-  const customEstimatePerDay = parseFloat(estimatePerDay) || 0
-  const customEstimateTotal = customEstimatePerDay * daysInMonth
-  const overrun = totalSpend - (customEstimatePerDay * uniqueDays)
+    // Current estimate using custom per-day value (like Excel's K46)
+    const customEstPerDay = parseFloat(estimatePerDay) || 0
+    const customEstTotal = customEstPerDay * daysInMonth
+    const over = total - (customEstPerDay * days)
 
-  // Group by date for chart
-  const byDate = {}
-  expenses.forEach(e => {
-    const day = parseInt(e.date.split('-')[2], 10)
-    byDate[day] = (byDate[day] || 0) + e.amount
-  })
-
-  // Cumulative chart
-  let cumulative = 0
-  const chartData = Object.entries(byDate)
-    .sort(([a], [b]) => a - b)
-    .map(([day, amount]) => {
-      cumulative += amount
-      return { day: parseInt(day), daily: amount, cumulative }
+    // Group by date for chart
+    const byDate = {}
+    expenses.forEach(e => {
+      const day = parseInt(e.date.split('-')[2], 10)
+      byDate[day] = (byDate[day] || 0) + e.amount
     })
 
-  // Group expenses by date for list display
-  const groupedByDate = {}
-  expenses.forEach(e => {
-    const key = e.date
-    if (!groupedByDate[key]) groupedByDate[key] = []
-    groupedByDate[key].push(e)
-  })
-  const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a))
+    // Cumulative chart
+    let cumulative = 0
+    const chart = Object.entries(byDate)
+      .sort(([a], [b]) => a - b)
+      .map(([day, amount]) => {
+        cumulative += amount
+        return { day: parseInt(day), daily: amount, cumulative }
+      })
+
+    // Group expenses by date for list display
+    const grouped = {}
+    expenses.forEach(e => {
+      const key = e.date
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(e)
+    })
+    const sorted = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a))
+
+    return {
+      totalSpend: total,
+      uniqueDays: days,
+      perDayAvg: avg,
+      daysInMonth,
+      monthEstimate: est,
+      customEstimatePerDay: customEstPerDay,
+      customEstimateTotal: customEstTotal,
+      overrun: over,
+      chartData: chart,
+      groupedByDate: grouped,
+      sortedDates: sorted
+    }
+  }, [expenses, currentMonth, estimatePerDay])
 
   return (
     <div className="animate-in">
@@ -414,22 +446,14 @@ export default function Expenses() {
               <div className="card-subtitle">Custom budget estimation like your Excel</div>
             </div>
           </div>
-          <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              Target per day budget (₹)
-              <InfoButton metricId="targetPerDayBudget" contextValues={{ customEstimatePerDay }} />
-            </label>
-            <input
-              className="form-input"
-              type="number"
-              placeholder="e.g., 248"
-              value={estimatePerDay}
-              onChange={e => setEstimatePerDay(e.target.value)}
-              onBlur={async () => {
-                await setSetting('target_per_day_budget', estimatePerDay)
-              }}
-            />
-          </div>
+          <BudgetInput
+            value={estimatePerDay}
+            customEstimatePerDay={customEstimatePerDay}
+            onSave={async (val) => {
+              setEstimatePerDay(val)
+              await setSetting('target_per_day_budget', val)
+            }}
+          />
           {customEstimatePerDay > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -520,7 +544,7 @@ export default function Expenses() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {sortedDates.map(date => {
+            {sortedDates.slice(0, visibleDatesCount).map(date => {
               const dateExpenses = groupedByDate[date]
               const dayTotal = dateExpenses.reduce((s, e) => s + e.amount, 0)
               return (
@@ -644,6 +668,18 @@ export default function Expenses() {
                 </div>
               )
             })}
+            {visibleDatesCount < sortedDates.length && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  type="button"
+                  onClick={() => setVisibleDatesCount(prev => prev + 10)}
+                  style={{ width: '100%', maxWidth: '200px', fontWeight: 600 }}
+                >
+                  Load More Dates
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -724,6 +760,35 @@ export default function Expenses() {
           onClose={() => setDeleteConfirm(null)}
         />
       )}
+    </div>
+  )
+}
+
+function BudgetInput({ value, customEstimatePerDay, onSave }) {
+  const [localVal, setLocalVal] = useState(value)
+
+  useEffect(() => {
+    setLocalVal(value)
+  }, [value])
+
+  return (
+    <div className="form-group">
+      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        Target per day budget (₹)
+        <InfoButton metricId="targetPerDayBudget" contextValues={{ customEstimatePerDay }} />
+      </label>
+      <input
+        className="form-input"
+        type="number"
+        placeholder="e.g., 248"
+        value={localVal}
+        onChange={e => setLocalVal(e.target.value)}
+        onBlur={() => {
+          if (localVal !== value) {
+            onSave(localVal)
+          }
+        }}
+      />
     </div>
   )
 }

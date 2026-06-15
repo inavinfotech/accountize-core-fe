@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink } from '../lib/db'
 import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
@@ -186,18 +186,26 @@ export default function Accounts() {
     }
   }
 
-  const filtered = accounts.filter(a => a.type === activeTab)
-  const totalBalance = filtered.reduce((s, a) => s + a.balance, 0)
+  const { filtered, totalBalance, missingDefaults } = useMemo(() => {
+    const filteredAccs = accounts.filter(a => a.type === activeTab)
+    const total = filteredAccs.reduce((s, a) => s + a.balance, 0)
 
-  const selfAccounts = accounts.filter(a => a.type === 'self')
-  const hasCash = selfAccounts.some(a => a.subtype === 'cash')
-  const hasExpense = selfAccounts.some(a => a.subtype === 'expense')
-  const hasOnline = selfAccounts.some(a => a.subtype === 'online')
+    const selfAccounts = accounts.filter(a => a.type === 'self')
+    const hasCash = selfAccounts.some(a => a.subtype === 'cash')
+    const hasExpense = selfAccounts.some(a => a.subtype === 'expense')
+    const hasOnline = selfAccounts.some(a => a.subtype === 'online')
 
-  const missingDefaults = []
-  if (!hasCash) missingDefaults.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
-  if (!hasOnline) missingDefaults.push({ name: 'Online Money', type: 'self', subtype: 'online' })
-  if (!hasExpense) missingDefaults.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
+    const defaults = []
+    if (!hasCash) defaults.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
+    if (!hasOnline) defaults.push({ name: 'Online Money', type: 'self', subtype: 'online' })
+    if (!hasExpense) defaults.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
+
+    return {
+      filtered: filteredAccs,
+      totalBalance: total,
+      missingDefaults: defaults
+    }
+  }, [accounts, activeTab])
 
   async function handleCreateDefaults() {
     try {
@@ -480,7 +488,11 @@ export default function Accounts() {
                                  borderColor: 'var(--red-border)',
                                  border: '1px solid var(--red-border)'
                                }}
-                               onClick={() => handleRevokeShare(account.id)}
+                                onClick={() => setDeleteConfirm({
+                                  type: 'revoke',
+                                  id: account.id,
+                                  label: account.name
+                                })}
                                title="Revoke Share Link"
                              >
                                <Link2Off size={14} /> <span className="btn-text">Revoke Link</span>
@@ -672,18 +684,26 @@ export default function Accounts() {
 
       {deleteConfirm && (
         <ConfirmModal
-          title={deleteConfirm.type === 'account' ? 'Delete Account?' : 'Delete Transaction?'}
+          title={
+            deleteConfirm.type === 'account' ? 'Delete Account?' : 
+            deleteConfirm.type === 'transaction' ? 'Delete Transaction?' :
+            'Deactivate Share Link?'
+          }
           message={
             deleteConfirm.type === 'account'
               ? `Are you sure you want to delete the account "${deleteConfirm.label}" and all of its associated transactions? This action cannot be undone.`
-              : `Are you sure you want to delete the transaction of ${formatCurrency(deleteConfirm.amount)} ${deleteConfirm.label ? `("${deleteConfirm.label}")` : ''}? This action cannot be undone.`
+              : deleteConfirm.type === 'transaction'
+              ? `Are you sure you want to delete the transaction of ${formatCurrency(deleteConfirm.amount)} ${deleteConfirm.label ? `("${deleteConfirm.label}")` : ''}? This action cannot be undone.`
+              : `Are you sure you want to deactivate the public share link for "${deleteConfirm.label}"? Anyone with this link will lose access to this shared ledger immediately.`
           }
-          confirmText="Delete"
+          confirmText={deleteConfirm.type === 'revoke' ? 'Deactivate' : 'Delete'}
           onConfirm={() => {
             if (deleteConfirm.type === 'account') {
               handleDeleteAccount(deleteConfirm.id)
-            } else {
+            } else if (deleteConfirm.type === 'transaction') {
               handleDeleteTransaction(deleteConfirm.id)
+            } else if (deleteConfirm.type === 'revoke') {
+              handleRevokeShare(deleteConfirm.id)
             }
           }}
           onClose={() => setDeleteConfirm(null)}

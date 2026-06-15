@@ -262,7 +262,7 @@ export default function Expenses() {
     }
     debounceTimerRef.current = setTimeout(() => {
       savePendingUpdates()
-    }, 3000)
+    }, 3500)
   }
 
   // ===== Analytics (matching Excel formulas) =====

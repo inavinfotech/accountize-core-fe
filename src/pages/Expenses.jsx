@@ -83,8 +83,12 @@ export default function Expenses() {
     }
   }
 
+  const [prevMonth, setPrevMonth] = useState(currentMonth)
+
   useEffect(() => {
-    loadExpenses()
+    const isMonthChange = currentMonth !== prevMonth
+    setPrevMonth(currentMonth)
+    loadExpenses(!isMonthChange && expenses.length > 0)
   }, [currentMonth, refreshKey])
 
   useEffect(() => {
@@ -103,9 +107,9 @@ export default function Expenses() {
     }
   }, [])
 
-  async function loadExpenses() {
+  async function loadExpenses(silent = false) {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const data = await getExpenses(currentMonth)
       setExpenses(data)
       const budget = await getSetting('target_per_day_budget', '0')

@@ -19,14 +19,17 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dailyBudget, setDailyBudget] = useState(0)
+  const [prevMonth, setPrevMonth] = useState(currentMonth)
 
   useEffect(() => {
-    loadData()
+    const isMonthChange = currentMonth !== prevMonth
+    setPrevMonth(currentMonth)
+    loadData(!isMonthChange && data !== null)
   }, [currentMonth, refreshKey])
 
-  async function loadData() {
+  async function loadData(silent = false) {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const d = await getDashboardData(currentMonth)
       setData(d)
       const budget = await getSetting('target_per_day_budget', '0')

@@ -225,6 +225,11 @@ export async function getDashboardData(monthYear) {
   const { data: totalExpensesUpTo, error: expErr } = await supabase
     .rpc('get_total_expenses_up_to', { month_year_param: monthYear })
   if (expErr) throw expErr
+
+  // Call server-side function to get carrying online balance up to this month (efficient carryover)
+  const { data: onlineBalance, error: onlineErr } = await supabase
+    .rpc('get_online_balance_up_to', { month_year_param: monthYear })
+  if (onlineErr) throw onlineErr
   
   const summary = await getMonthlySummary(monthYear)
   
@@ -240,28 +245,18 @@ export async function getDashboardData(monthYear) {
   const perDayAvg = daysTracked > 0 ? totalExpenses / daysTracked : 0
 
   const cashBalance = selfAccounts
-    .filter(a => a.name?.toLowerCase().includes('cash'))
+    .filter(a => a.subtype === 'cash')
     .reduce((s, a) => s + a.balance, 0)
   const expenseAllotted = selfAccounts
-    .filter(a => {
-      const name = a.name?.toLowerCase() || ''
-      return name.includes('expense') || name.includes('expence')
-    })
+    .filter(a => a.subtype === 'expense')
     .reduce((s, a) => s + a.balance, 0)
   const rawOnlineBalance = selfAccounts
-    .filter(a => {
-      const name = a.name?.toLowerCase() || ''
-      return !name.includes('cash') && !name.includes('expense') && !name.includes('expence') && !name.includes('bank')
-    })
+    .filter(a => a.subtype === 'online')
     .reduce((s, a) => s + a.balance, 0)
   const bankBalance = selfAccounts
-    .filter(a => {
-      const name = a.name?.toLowerCase() || ''
-      return name.includes('bank')
-    })
+    .filter(a => a.subtype === 'bank')
     .reduce((s, a) => s + a.balance, 0)
   
-  const onlineBalance = rawOnlineBalance + expenseAllotted - totalExpensesUpTo
   const selfTotal = cashBalance + onlineBalance + bankBalance
   
   const totalAssets = totalReceivables + selfTotal

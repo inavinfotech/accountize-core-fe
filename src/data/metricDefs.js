@@ -45,8 +45,8 @@ export const METRIC_DEFS = {
   cashBalance: {
     title: 'Cash in Hand',
     description: 'The sum of physical cash currently in your possession.',
-    excelFormula: '= SUM(Self Accounts with "cash" in name)',
-    formula: 'Cash in Hand = Sum of cumulative balances of all Self accounts containing "cash" in the name',
+    excelFormula: '= SUM(Self Accounts with subtype "cash")',
+    formula: 'Cash in Hand = Sum of cumulative balances of all Self accounts of subtype "cash"',
     variables: [
       { name: 'Self Accounts', desc: 'Accounts managed directly by you, representing cash, bank, or online funds' }
     ],
@@ -60,23 +60,23 @@ export const METRIC_DEFS = {
     excelFormula: '= Raw Online Balance + Expense Allotted - Cumulative Expenses (All-time)',
     formula: 'Online Balance = Raw Online Balance + Expense Allotted - Cumulative Expenses (Up To Current Month)',
     variables: [
-      { name: 'Raw Online Balance', desc: 'Sum of Self accounts excluding Cash, Bank, and Expense accounts' },
-      { name: 'Expense Allotted', desc: 'Sum of Self accounts with "expense" or "expence" in the name' },
+      { name: 'Raw Online Balance', desc: 'Sum of Self accounts of subtype "online"' },
+      { name: 'Expense Allotted', desc: 'Sum of Self accounts of subtype "expense"' },
       { name: 'Cumulative Expenses', desc: 'All-time expenses tracked in the system up to the current month' }
     ],
     getLiveCalculation: (data) => {
       const rawOnline = data.rawOnlineBalance || 0
       const expAllot = data.expenseAllotted || 0
       const totalExpUpTo = data.totalExpensesUpTo || 0
-      const net = rawOnline + expAllot - totalExpUpTo
+      const net = data.onlineBalance || (rawOnline + expAllot - totalExpUpTo)
       return `${formatCurrency(rawOnline)} (Raw Online) + ${formatCurrency(expAllot)} (Expense Allotted) - ${formatCurrency(totalExpUpTo)} (Cumulative Expenses) = ${formatCurrency(net)}`
     }
   },
   bankBalance: {
     title: 'Other Banks Balance',
     description: 'The combined balance across your traditional bank accounts (e.g. savings, checking).',
-    excelFormula: '= SUM(Self Accounts with "bank" in name)',
-    formula: 'Other Banks Balance = Sum of cumulative balances of all Self accounts containing "bank" in the name',
+    excelFormula: '= SUM(Self Accounts with subtype "bank")',
+    formula: 'Other Banks Balance = Sum of cumulative balances of all Self accounts of subtype "bank"',
     variables: [
       { name: 'Bank Accounts', desc: 'Accounts representing institutional bank savings (e.g. SBI, HDFC)' }
     ],

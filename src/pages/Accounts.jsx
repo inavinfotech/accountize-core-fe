@@ -25,16 +25,20 @@ export default function Accounts() {
   const [sharedLinks, setSharedLinks] = useState({}) // { accountId: token }
 
   // Form state
-  const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable' })
+  const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable', subtype: 'other' })
   const [newTxn, setNewTxn] = useState({ amount: '', description: '', date: '' })
 
+  const [prevMonth, setPrevMonth] = useState(currentMonth)
+
   useEffect(() => {
-    loadAccounts()
+    const isMonthChange = currentMonth !== prevMonth
+    setPrevMonth(currentMonth)
+    loadAccounts(!isMonthChange && accounts.length > 0)
   }, [currentMonth, refreshKey])
 
-  async function loadAccounts() {
+  async function loadAccounts(silent = false) {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const data = await getAccountBalances(currentMonth)
       setAccounts(data)
       // Load shared links for receivable accounts
@@ -59,8 +63,13 @@ export default function Accounts() {
   async function handleAddAccount(e) {
     e.preventDefault()
     try {
-      await createAccount(newAccount)
-      setNewAccount({ name: '', type: 'receivable' })
+      const accountData = {
+        name: newAccount.name,
+        type: newAccount.type,
+        subtype: newAccount.type === 'self' ? (newAccount.subtype || 'cash') : 'other'
+      }
+      await createAccount(accountData)
+      setNewAccount({ name: '', type: 'receivable', subtype: 'other' })
       setShowAddAccount(false)
       triggerRefresh()
     } catch (err) {
@@ -181,17 +190,14 @@ export default function Accounts() {
   const totalBalance = filtered.reduce((s, a) => s + a.balance, 0)
 
   const selfAccounts = accounts.filter(a => a.type === 'self')
-  const hasCash = selfAccounts.some(a => a.name?.toLowerCase().includes('cash'))
-  const hasExpense = selfAccounts.some(a => a.name?.toLowerCase().includes('expense') || a.name?.toLowerCase().includes('expence'))
-  const hasOnline = selfAccounts.some(a => {
-    const name = a.name?.toLowerCase() || ''
-    return !name.includes('cash') && !name.includes('expense') && !name.includes('expence') && !name.includes('bank')
-  })
+  const hasCash = selfAccounts.some(a => a.subtype === 'cash')
+  const hasExpense = selfAccounts.some(a => a.subtype === 'expense')
+  const hasOnline = selfAccounts.some(a => a.subtype === 'online')
 
   const missingDefaults = []
-  if (!hasCash) missingDefaults.push({ name: 'Cash In Hand', type: 'self' })
-  if (!hasOnline) missingDefaults.push({ name: 'Online Money', type: 'self' })
-  if (!hasExpense) missingDefaults.push({ name: 'Expence Money', type: 'self' })
+  if (!hasCash) missingDefaults.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
+  if (!hasOnline) missingDefaults.push({ name: 'Online Money', type: 'self', subtype: 'online' })
+  if (!hasExpense) missingDefaults.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
 
   async function handleCreateDefaults() {
     try {
@@ -543,13 +549,31 @@ export default function Accounts() {
               <select
                 className="form-select"
                 value={newAccount.type}
-                onChange={e => setNewAccount({ ...newAccount, type: e.target.value })}
+                onChange={e => {
+                  const type = e.target.value
+                  setNewAccount({ ...newAccount, type, subtype: type === 'self' ? 'cash' : 'other' })
+                }}
               >
                 <option value="receivable">Receivable (they owe me)</option>
                 <option value="payable">Payable (I owe them)</option>
                 <option value="self">Self (Cash / Online)</option>
               </select>
             </div>
+            {newAccount.type === 'self' && (
+              <div className="form-group">
+                <label className="form-label">Subtype</label>
+                <select
+                  className="form-select"
+                  value={newAccount.subtype || 'cash'}
+                  onChange={e => setNewAccount({ ...newAccount, subtype: e.target.value })}
+                >
+                  <option value="cash">Cash in Hand</option>
+                  <option value="online">Online Balance (e.g. UPI, Wallets)</option>
+                  <option value="bank">Bank Account</option>
+                  <option value="expense">Expense Pool</option>
+                </select>
+              </div>
+            )}
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowAddAccount(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary">Create Account</button>

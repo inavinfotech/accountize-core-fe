@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import TopRightMenu from './components/TopRightMenu'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Accounts = lazy(() => import('./pages/Accounts'))
@@ -10,6 +11,7 @@ const Verification = lazy(() => import('./pages/Verification'))
 const Security = lazy(() => import('./pages/Security'))
 const Login = lazy(() => import('./pages/Login'))
 const SharedLedger = lazy(() => import('./pages/SharedLedger'))
+const Transactions = lazy(() => import('./pages/Transactions'))
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
   Calendar, LogOut, Shield
@@ -75,6 +77,7 @@ function TopBar() {
             ))}
           </select>
         </div>
+        <TopRightMenu />
       </div>
     </header>
   )
@@ -168,6 +171,11 @@ function AppLayout() {
       {/* Desktop-only sidebar */}
       <Sidebar />
 
+      {/* Desktop-only top right menu */}
+      <div className="desktop-top-right-menu">
+        <TopRightMenu />
+      </div>
+
       {/* Main content page area */}
       <main className="main-content">
         <Suspense fallback={
@@ -179,6 +187,7 @@ function AppLayout() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/expenses" element={<Expenses />} />
+            <Route path="/transactions" element={<Transactions />} />
             <Route path="/verification" element={<Verification />} />
             <Route path="/security" element={<Security />} />
             <Route path="*" element={<Navigate to="/" replace />} />

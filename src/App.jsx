@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { ReactLenis, useLenis } from 'lenis/react'
 import { AppProvider, useApp } from './context/AppContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import TopRightMenu from './components/TopRightMenu'
@@ -201,31 +202,47 @@ function AppLayout() {
   )
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  const lenis = useLenis()
+
+  useEffect(() => {
+    if (lenis) {
+      lenis.scrollTo(0, { immediate: true })
+    }
+  }, [pathname, lenis])
+
+  return null
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppProvider>
-          <Suspense fallback={
-            <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-              <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-            </div>
-          }>
-            <Routes>
-              <Route path="/login" element={<LoginRoute />} />
-              <Route path="/shared/:token" element={<SharedLedger />} />
-              <Route 
-                path="/*" 
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                } 
-              />
-            </Routes>
-          </Suspense>
-        </AppProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ReactLenis root>
+      <BrowserRouter>
+        <ScrollToTop />
+        <AuthProvider>
+          <AppProvider>
+            <Suspense fallback={
+              <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+                <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+              </div>
+            }>
+              <Routes>
+                <Route path="/login" element={<LoginRoute />} />
+                <Route path="/shared/:token" element={<SharedLedger />} />
+                <Route 
+                  path="/*" 
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  } 
+                />
+              </Routes>
+            </Suspense>
+          </AppProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ReactLenis>
   )
 }

@@ -269,7 +269,7 @@ export default function Transactions() {
                           {txn.description || <span style={{ color: 'var(--text-muted)' }}>-</span>}
                         </td>
                         <td className={`amount ${isCredit ? 'positive' : 'negative'}`} style={{ padding: '10px 12px', fontSize: '0.75rem', textAlign: 'right' }}>
-                          {isCredit ? '+' : '-'} {formatCurrency(Math.abs(txn.amount))}
+                          {formatCurrency(Math.abs(txn.amount))}
                         </td>
                         <td style={{ padding: '6px 12px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
@@ -283,9 +283,9 @@ export default function Transactions() {
                               })}
                               title="Edit Transaction"
                               type="button"
-                              style={{ width: 28, height: 28 }}
+                              style={{ width: 32, height: 32 }}
                             >
-                              <Edit2 size={12} />
+                              <Edit2 size={15} />
                             </button>
                             <button
                               className="btn btn-ghost btn-icon btn-sm"
@@ -294,11 +294,11 @@ export default function Transactions() {
                                 amount: txn.amount,
                                 label: txn.description
                               })}
-                              style={{ color: 'var(--red)', width: 28, height: 28 }}
+                              style={{ color: 'var(--red)', width: 32, height: 32 }}
                               title="Delete Transaction"
                               type="button"
                             >
-                              <Trash2 size={12} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>

@@ -56,20 +56,24 @@ export const METRIC_DEFS = {
   },
   onlineBalance: {
     title: 'Online Balance',
-    description: 'Your estimated online balance (e.g. Paytm, GPay, etc.) adjusted for expense transfers and cumulative spending.',
-    excelFormula: '= Raw Online Balance + Expense Allotted - Cumulative Expenses (All-time)',
-    formula: 'Online Balance = Raw Online Balance + Expense Allotted - Cumulative Expenses (Up To Current Month)',
+    description: 'Your estimated online balance (e.g. Paytm, GPay, etc.) adjusted for expense transfers and monthly spending.',
+    excelFormula: '= Raw Online Balance + Expense Allotted - (Expenses - Settled)',
+    formula: 'Online Balance = Raw Online Balance + Expense Allotted - (Total Expenses - Settled Expenses)',
     variables: [
       { name: 'Raw Online Balance', desc: 'Sum of Self accounts of subtype "online"' },
       { name: 'Expense Allotted', desc: 'Sum of Self accounts of subtype "expense"' },
-      { name: 'Cumulative Expenses', desc: 'All-time expenses tracked in the system up to the current month' }
+      { name: 'Total Expenses', desc: 'Expenses tracked in the system for the current selected month' }
     ],
     getLiveCalculation: (data) => {
       const rawOnline = data.rawOnlineBalance || 0
       const expAllot = data.expenseAllotted || 0
-      const totalExpUpTo = data.totalExpensesUpTo || 0
-      const net = data.onlineBalance || (rawOnline + expAllot - totalExpUpTo)
-      return `${formatCurrency(rawOnline)} (Raw Online) + ${formatCurrency(expAllot)} (Expense Allotted) - ${formatCurrency(totalExpUpTo)} (Cumulative Expenses) = ${formatCurrency(net)}`
+      const totalExp = data.totalExpenses || 0
+      const settledExp = data.settledExpenses || 0
+      const net = data.onlineBalance
+      if (settledExp > 0) {
+        return `${formatCurrency(rawOnline)} (Raw Online) + ${formatCurrency(expAllot)} (Expense Allotted) - [ ${formatCurrency(totalExp)} (Total Expenses) - ${formatCurrency(settledExp)} (Settled) ] = ${formatCurrency(net)}`
+      }
+      return `${formatCurrency(rawOnline)} (Raw Online) + ${formatCurrency(expAllot)} (Expense Allotted) - ${formatCurrency(totalExp)} (Total Expenses) = ${formatCurrency(net)}`
     }
   },
   bankBalance: {

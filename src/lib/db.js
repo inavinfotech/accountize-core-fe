@@ -321,7 +321,15 @@ export async function getDashboardData(monthYear) {
       .filter(a => a.subtype === 'bank')
       .reduce((s, a) => s + a.balance, 0)
     
-    const selfTotal = cashBalance + onlineBalance + bankBalance
+    const settledExpenses = selfAccounts
+      .filter(a => a.subtype === 'expense')
+      .reduce((sum, a) => {
+        const settles = (a.transactions || []).filter(t => t.description === 'Settle Monthly Expenses')
+        return sum + settles.reduce((s, t) => s + Math.abs(t.amount || 0), 0)
+      }, 0)
+
+    const finalOnlineBalance = rawOnlineBalance + expenseAllotted - (totalExpenses - settledExpenses)
+    const selfTotal = cashBalance + finalOnlineBalance + bankBalance
     
     const totalAssets = totalReceivables + selfTotal
     const availableBalance = totalAssets - totalPayables
@@ -335,9 +343,10 @@ export async function getDashboardData(monthYear) {
       totalPayables,
       cashBalance,
       rawOnlineBalance,
-      onlineBalance,
+      onlineBalance: finalOnlineBalance,
       bankBalance,
       expenseAllotted,
+      settledExpenses,
       totalAssets,
       availableBalance,
       expenses,

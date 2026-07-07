@@ -188,6 +188,13 @@ export default function Verification() {
 
   const allVerified = isOnlineVerified && isCashVerified
 
+  const expenseAccounts = data.balances.filter(a => a.subtype === 'expense')
+  const settlementTxn = expenseAccounts.reduce((found, acc) => {
+    if (found) return found
+    const t = acc.transactions?.find(tx => tx.description === 'Settle Monthly Expenses')
+    return t ? { ...t, accountName: acc.name } : null
+  }, null)
+
   return (
     <div className="animate-in">
       <div className="page-header">
@@ -263,31 +270,32 @@ export default function Verification() {
                   Online Accounts Raw:
                   <InfoButton metricId="onlineAccountsRawVerification" contextValues={data} />
                 </span>
-                <span>{formatCurrency(data.rawOnlineBalance)}</span>
+                <span className={`amount ${getAmountClass(data.rawOnlineBalance)}`}>{formatCurrency(data.rawOnlineBalance)}</span>
               </div>
               <div className="flex-between">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   Expense Allotted:
                   <InfoButton metricId="expenseAllottedVerification" contextValues={data} />
                 </span>
-                <span className="positive">{formatCurrency(data.expenseAllotted)}</span>
+                <span className={`amount ${getAmountClass(data.expenseAllotted)}`}>{formatCurrency(data.expenseAllotted)}</span>
               </div>
               <div className="flex-between">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  Total Expenses (Cumulative):
-                  <InfoButton metricId="totalExpensesCumulativeVerification" contextValues={data} />
+                  Total Expenses:
+                  <InfoButton metricId="totalExpenses" contextValues={data} />
                 </span>
-                <span className="negative">{formatCurrency(data.totalExpensesUpTo)}</span>
+                <span className="amount negative">{formatCurrency(data.totalExpenses)}</span>
               </div>
+              {settlementTxn && (
+                <div className="flex-between">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    Settled Expenses:
+                  </span>
+                  <span className="amount positive">+{formatCurrency(Math.abs(settlementTxn.amount))}</span>
+                </div>
+              )}
             </div>
             {(() => {
-              const expenseAccounts = data.balances.filter(a => a.subtype === 'expense')
-              const settlementTxn = expenseAccounts.reduce((found, acc) => {
-                if (found) return found
-                const t = acc.transactions?.find(tx => tx.description === 'Settle Monthly Expenses')
-                return t ? { ...t, accountName: acc.name } : null
-              }, null)
-
               if (expenseAccounts.length === 0) return null
 
               return (

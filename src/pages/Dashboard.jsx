@@ -118,6 +118,30 @@ export default function Dashboard() {
     }, null)
   }, [data, expenseAccounts])
 
+  const showSettlementWarning = useMemo(() => {
+    if (!data || data.totalExpenses <= 0 || settlementTxn || expenseAccounts.length === 0) return false
+
+    const today = new Date()
+    const todayYear = today.getFullYear()
+    const todayMonth = today.getMonth() + 1
+    const todayMonthStr = `${todayYear}-${String(todayMonth).padStart(2, '0')}`
+
+    if (currentMonth < todayMonthStr) {
+      // Past month is fully complete and unsettled, show warning
+      return true
+    }
+    if (currentMonth > todayMonthStr) {
+      // Future month, don't show warning
+      return false
+    }
+
+    // Current month: show warning only when 1 day or less remains to month complete
+    const lastDay = new Date(todayYear, todayMonth, 0).getDate()
+    const currentDay = today.getDate()
+    const daysRemaining = lastDay - currentDay
+    return daysRemaining <= 1
+  }, [data, settlementTxn, expenseAccounts, currentMonth])
+
   const getSettleDate = () => {
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -207,7 +231,7 @@ export default function Dashboard() {
       </div>
 
       {/* Pending Settlement Banner */}
-      {data && data.totalExpenses > 0 && !settlementTxn && expenseAccounts.length > 0 && (
+      {showSettlementWarning && (
         <div className="verification-banner" style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', color: 'var(--amber)', marginBottom: 20 }}>
           <div className="verification-banner-icon" style={{ color: 'var(--amber)' }}>
             <ShieldAlert size={22} />

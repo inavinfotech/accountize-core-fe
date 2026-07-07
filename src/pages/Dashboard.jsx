@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import { getDashboardData, getSetting } from '../lib/db'
+import { getDashboardData, getSetting, createTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
 import InfoButton from '../components/InfoButton'
 import {
@@ -15,7 +15,7 @@ import {
 const PIE_COLORS = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
 export default function Dashboard() {
-  const { currentMonth, refreshKey } = useApp()
+  const { currentMonth, refreshKey, triggerRefresh } = useApp()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dailyBudget, setDailyBudget] = useState(0)
@@ -104,6 +104,44 @@ export default function Dashboard() {
     }
   }, [data, currentMonth, daysInMonth])
 
+  const expenseAccounts = useMemo(() => {
+    if (!data) return []
+    return data.balances.filter(a => a.subtype === 'expense')
+  }, [data])
+
+  const settlementTxn = useMemo(() => {
+    if (!data || expenseAccounts.length === 0) return null
+    return expenseAccounts.reduce((found, acc) => {
+      if (found) return found
+      const t = acc.transactions?.find(tx => tx.description === 'Settle Monthly Expenses')
+      return t ? { ...t, accountName: acc.name } : null
+    }, null)
+  }, [data, expenseAccounts])
+
+  const getSettleDate = () => {
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    if (todayStr === currentMonth) {
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    }
+    return `${currentMonth}-28`
+  }
+
+  async function handleSettle(accountId, amount) {
+    try {
+      await createTransaction({
+        account_id: accountId,
+        amount: -amount,
+        description: 'Settle Monthly Expenses',
+        month_year: currentMonth,
+        created_at: new Date(getSettleDate()).toISOString()
+      })
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to settle expenses from dashboard:', err)
+    }
+  }
+
   const handleExportMonthlySummary = () => {
     if (!data) return
     const headers = ['Category', 'Item/Account', 'Amount / Balance (₹)', 'Type']
@@ -167,6 +205,39 @@ export default function Dashboard() {
           </button>
         )}
       </div>
+
+      {/* Pending Settlement Banner */}
+      {data && data.totalExpenses > 0 && !settlementTxn && expenseAccounts.length > 0 && (
+        <div className="verification-banner" style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', color: 'var(--amber)', marginBottom: 20 }}>
+          <div className="verification-banner-icon" style={{ color: 'var(--amber)' }}>
+            <ShieldAlert size={22} />
+          </div>
+          <div className="verification-banner-text" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', width: '100%', gap: 12 }}>
+            <div>
+              <h3 style={{ color: 'var(--amber)', margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>Unsettled Expenses</h3>
+              <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.85rem' }}>
+                You have {formatCurrency(data.totalExpenses)} of expenses that haven't been subtracted from your expense account ({expenseAccounts[0].name}) yet.
+              </p>
+            </div>
+            <button
+              onClick={() => handleSettle(expenseAccounts[0].id, data.totalExpenses)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px solid var(--amber)',
+                color: 'var(--amber)',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)'
+              }}
+            >
+              Settle Now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Verification Banner */}
       {data.summary && !verified && (

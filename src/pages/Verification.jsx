@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getDashboardData, upsertMonthlySummary } from '../lib/db'
+import { getDashboardData, upsertMonthlySummary, createTransaction, deleteTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass } from '../lib/utils'
 import InfoButton from '../components/InfoButton'
 import {
@@ -19,11 +19,36 @@ export default function Verification() {
 
   const [prevMonth, setPrevMonth] = useState(currentMonth)
 
+  const [settleAmount, setSettleAmount] = useState('')
+  const [settleAccountId, setSettleAccountId] = useState('')
+  const [userEditedAmount, setUserEditedAmount] = useState(false)
+
   useEffect(() => {
     const isMonthChange = currentMonth !== prevMonth
     setPrevMonth(currentMonth)
     loadData(!isMonthChange && data !== null)
   }, [currentMonth, refreshKey])
+
+  useEffect(() => {
+    setUserEditedAmount(false)
+    setSettleAmount('')
+    setSettleAccountId('')
+  }, [currentMonth])
+
+  useEffect(() => {
+    if (data && !userEditedAmount) {
+      setSettleAmount(data.totalExpenses.toString())
+    }
+  }, [data, userEditedAmount])
+
+  useEffect(() => {
+    if (data) {
+      const expAccs = data.balances.filter(a => a.subtype === 'expense')
+      if (expAccs.length > 0 && !settleAccountId) {
+        setSettleAccountId(expAccs[0].id)
+      }
+    }
+  }, [data, settleAccountId])
 
   async function loadData(silent = false) {
     try {
@@ -100,6 +125,39 @@ export default function Verification() {
       console.error('Failed to save:', err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const getSettleDate = () => {
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    if (todayStr === currentMonth) {
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    }
+    return `${currentMonth}-28`
+  }
+
+  async function handleSettle(accountId, amount) {
+    try {
+      await createTransaction({
+        account_id: accountId,
+        amount: -amount,
+        description: 'Settle Monthly Expenses',
+        month_year: currentMonth,
+        created_at: new Date(getSettleDate()).toISOString()
+      })
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to settle expenses:', err)
+    }
+  }
+
+  async function handleUndoSettle(txnId) {
+    try {
+      await deleteTransaction(txnId)
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to undo settlement:', err)
     }
   }
 
@@ -222,6 +280,89 @@ export default function Verification() {
                 <span className="negative">{formatCurrency(data.totalExpensesUpTo)}</span>
               </div>
             </div>
+            {(() => {
+              const expenseAccounts = data.balances.filter(a => a.subtype === 'expense')
+              const settlementTxn = expenseAccounts.reduce((found, acc) => {
+                if (found) return found
+                const t = acc.transactions?.find(tx => tx.description === 'Settle Monthly Expenses')
+                return t ? { ...t, accountName: acc.name } : null
+              }, null)
+
+              if (expenseAccounts.length === 0) return null
+
+              return (
+                <div style={{
+                  marginTop: 8,
+                  padding: '10px 12px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px dashed var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Settlement Status</span>
+                    {settlementTxn ? (
+                      <span className="badge green" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>Settled</span>
+                    ) : (
+                      <span className="badge red" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>Pending</span>
+                    )}
+                  </div>
+                  {settlementTxn ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        Subtracted {formatCurrency(Math.abs(settlementTxn.amount))} from {settlementTxn.accountName}
+                      </span>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleUndoSettle(settlementTxn.id)}
+                        style={{ padding: '2px 6px', height: 'auto', fontSize: '0.7rem', color: 'var(--red)', fontWeight: 600 }}
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Account</label>
+                        <select
+                          className="form-input form-input-sm"
+                          value={settleAccountId}
+                          onChange={e => setSettleAccountId(e.target.value)}
+                          style={{ fontSize: '0.7rem', padding: '4px 8px', height: 'auto' }}
+                        >
+                          {expenseAccounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>{acc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Amount to Subtract (₹)</label>
+                        <input
+                          type="number"
+                          className="form-input form-input-sm"
+                          value={settleAmount}
+                          onChange={e => {
+                            setSettleAmount(e.target.value)
+                            setUserEditedAmount(true)
+                          }}
+                          style={{ fontSize: '0.7rem', padding: '4px 8px', height: 'auto' }}
+                        />
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleSettle(settleAccountId, parseFloat(settleAmount) || 0)}
+                        disabled={!settleAccountId || (parseFloat(settleAmount) || 0) <= 0}
+                        style={{ fontSize: '0.7rem', padding: '5px 10px', alignSelf: 'flex-start', fontWeight: 600 }}
+                      >
+                        Settle Expenses
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <div className="flex-between">
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 Cash Balance

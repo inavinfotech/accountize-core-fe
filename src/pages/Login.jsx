@@ -185,7 +185,7 @@ export default function Login() {
   // MFA Verification Screen
   if (mfaRequired) {
     return (
-      <div className="auth-container">
+      <div className="auth-container single-layout">
         <div className="auth-card">
           <div className="mfa-verify-container">
             <div className="mfa-verify-icon">
@@ -249,181 +249,257 @@ export default function Login() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-header-logo">
-          <img src="/logo.svg" alt="Accountify Logo" className="auth-logo-icon" />
-          <h1>Accountify</h1>
-          <p>Personal Finance Management</p>
+      <div className="auth-promo-side">
+        <div className="auth-promo-body">
+          <h2 className="auth-promo-title">
+            Take control of your money, <span>effortlessly</span>.
+          </h2>
+          <p className="auth-promo-text">
+            Track your expenses, manage your accounts, and visualize your financial health in one beautifully designed, secure platform.
+          </p>
+
+          <div className="auth-mockup-container">
+            <div className="auth-mockup-window">
+              <div className="auth-mockup-titlebar">
+                <div className="window-dots">
+                  <span className="window-dot dot-close"></span>
+                  <span className="window-dot dot-min"></span>
+                  <span className="window-dot dot-expand"></span>
+                </div>
+                <div className="window-address">app.accountify.com/dashboard</div>
+              </div>
+              <div className="auth-mockup-layout">
+                <div className="auth-mockup-sidebar">
+                  <div className="mockup-sidebar-item active"></div>
+                  <div className="mockup-sidebar-item"></div>
+                  <div className="mockup-sidebar-item"></div>
+                  <div className="mockup-sidebar-item"></div>
+                </div>
+                <div className="auth-mockup-main">
+                  <div className="mockup-grid">
+                    <div className="mockup-widget">
+                      <span className="mockup-label">Net Balance</span>
+                      <span className="mockup-val">₹14,240.50</span>
+                      <span className="mockup-sub green">↑ +8.2% this week</span>
+                    </div>
+                    <div className="mockup-widget">
+                      <span className="mockup-label">Cash Flow</span>
+                      <div className="mockup-chart-bars">
+                        <div className="mockup-chart-bar" style={{ height: '35%' }}></div>
+                        <div className="mockup-chart-bar" style={{ height: '60%' }}></div>
+                        <div className="mockup-chart-bar" style={{ height: '45%' }}></div>
+                        <div className="mockup-chart-bar" style={{ height: '80%' }}></div>
+                        <div className="mockup-chart-bar" style={{ height: '55%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mockup-activities">
+                    <span className="mockup-label">Recent Transactions</span>
+                    <div className="mockup-activity">
+                      <div className="activity-icon green">+₹</div>
+                      <div className="activity-details">
+                        <span className="activity-name">Payroll Deposit</span>
+                        <span className="activity-date">Today, 9:00 AM</span>
+                      </div>
+                      <span className="activity-amount green">+₹3,500.00</span>
+                    </div>
+                    <div className="mockup-activity">
+                      <div className="activity-icon red">-₹</div>
+                      <div className="activity-details">
+                        <span className="activity-name">Supermarket</span>
+                        <span className="activity-date">Yesterday, 4:32 PM</span>
+                      </div>
+                      <span className="activity-amount">-₹124.50</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mockup-glow"></div>
+          </div>
         </div>
 
-        <h2 className="auth-title">
-          {isSignUp ? 'Create your account' : 'Sign in to your account'}
-        </h2>
+        <div className="promo-glow glow-1"></div>
+        <div className="promo-glow glow-2"></div>
+      </div>
 
-        {/* Social Login Buttons (sign-in only) */}
-        {!isSignUp && (
-          <>
-            <div className="auth-social-buttons">
-              <button
-                type="button"
-                className="auth-social-btn google"
-                onClick={() => handleSocialLogin('google')}
-                disabled={socialLoading !== null}
-              >
-                {socialLoading === 'google' ? (
-                  <span className="auth-spinner" style={{ borderTopColor: '#EA4335', borderColor: '#e5e7eb' }}></span>
-                ) : (
-                  <GoogleIcon />
-                )}
-                Continue with Google
-              </button>
-            </div>
-
-            <div className="auth-divider">
-              <span>or continue with email</span>
-            </div>
-
-            {/* Auth Method Tabs */}
-            <div className="auth-tabs">
-              <button
-                type="button"
-                className={`auth-tab ${authMethod === 'password' ? 'active' : ''}`}
-                onClick={() => { setAuthMethod('password'); setError(''); setSuccessMsg('') }}
-              >
-                <KeyRound size={14} /> Password
-              </button>
-              <button
-                type="button"
-                className={`auth-tab ${authMethod === 'magic' ? 'active' : ''}`}
-                onClick={() => { setAuthMethod('magic'); setError(''); setSuccessMsg('') }}
-              >
-                <Wand2 size={14} /> Magic Link
-              </button>
-            </div>
-          </>
-        )}
-
-        {error && (
-          <div className="auth-alert error">
-            <AlertCircle size={16} />
-            <span>{error}</span>
+      <div className="auth-form-side">
+        <div className="auth-card">
+          <div className="auth-header-logo">
+            <img src="/logo.svg" alt="Accountify Logo" className="auth-logo-icon" />
+            <h1>Accountify</h1>
+            <p>Personal Finance Management</p>
           </div>
-        )}
 
-        {successMsg && (
-          <div className="auth-alert success">
-            <CheckCircle2 size={16} />
-            <span>{successMsg}</span>
-          </div>
-        )}
+          <h2 className="auth-title">
+            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+          </h2>
 
-        {/* Magic Link Form */}
-        {authMethod === 'magic' && !isSignUp ? (
-          <form className="auth-form" onSubmit={handleMagicLink}>
-            <div className="auth-form-group">
-              <label className="auth-label" htmlFor="magic-email">Email Address</label>
-              <div className="auth-input-wrapper">
-                <Mail size={16} className="auth-input-icon" />
-                <input
-                  id="magic-email"
-                  type="email"
-                  className="auth-input"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <button type="submit" className="auth-submit-btn" disabled={loading}>
-              {loading ? (
-                <span className="auth-spinner"></span>
-              ) : (
-                <>
-                  <Wand2 size={16} /> Send Magic Link
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          /* Email / Password Form */
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <div className="auth-form-group">
-              <label className="auth-label" htmlFor="email">Email Address</label>
-              <div className="auth-input-wrapper">
-                <Mail size={16} className="auth-input-icon" />
-                <input
-                  id="email"
-                  type="email"
-                  className="auth-input"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="auth-form-group">
-              <label className="auth-label" htmlFor="password">Password</label>
-              <div className="auth-input-wrapper">
-                <Lock size={16} className="auth-input-icon" />
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="auth-input"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
+          {/* Social Login Buttons (sign-in only) */}
+          {!isSignUp && (
+            <>
+              <div className="auth-social-buttons">
                 <button
                   type="button"
-                  className="auth-toggle-password"
-                  onClick={() => setShowPassword(prev => !prev)}
+                  className="auth-social-btn google"
+                  onClick={() => handleSocialLogin('google')}
+                  disabled={socialLoading !== null}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {socialLoading === 'google' ? (
+                    <span className="auth-spinner" style={{ borderTopColor: '#EA4335', borderColor: '#e5e7eb' }}></span>
+                  ) : (
+                    <GoogleIcon />
+                  )}
+                  Continue with Google
                 </button>
               </div>
-            </div>
 
-            {isSignUp && (
+              <div className="auth-divider">
+                <span>or continue with email</span>
+              </div>
+
+              {/* Auth Method Tabs */}
+              <div className="auth-tabs">
+                <button
+                  type="button"
+                  className={`auth-tab ${authMethod === 'password' ? 'active' : ''}`}
+                  onClick={() => { setAuthMethod('password'); setError(''); setSuccessMsg('') }}
+                >
+                  <KeyRound size={14} /> Password
+                </button>
+                <button
+                  type="button"
+                  className={`auth-tab ${authMethod === 'magic' ? 'active' : ''}`}
+                  onClick={() => { setAuthMethod('magic'); setError(''); setSuccessMsg('') }}
+                >
+                  <Wand2 size={14} /> Magic Link
+                </button>
+              </div>
+            </>
+          )}
+
+          {error && (
+            <div className="auth-alert error">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="auth-alert success">
+              <CheckCircle2 size={16} />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {/* Magic Link Form */}
+          {authMethod === 'magic' && !isSignUp ? (
+            <form className="auth-form" onSubmit={handleMagicLink}>
               <div className="auth-form-group">
-                <label className="auth-label" htmlFor="confirmPassword">Confirm Password</label>
+                <label className="auth-label" htmlFor="magic-email">Email Address</label>
                 <div className="auth-input-wrapper">
-                  <Lock size={16} className="auth-input-icon" />
+                  <Mail size={16} className="auth-input-icon" />
                   <input
-                    id="confirmPassword"
-                    type={showPassword ? 'text' : 'password'}
+                    id="magic-email"
+                    type="email"
                     className="auth-input"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="auth-submit-btn" disabled={loading}>
+                {loading ? (
+                  <span className="auth-spinner"></span>
+                ) : (
+                  <>
+                    <Wand2 size={16} /> Send Magic Link
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* Email / Password Form */
+            <form className="auth-form" onSubmit={handleSubmit}>
+              <div className="auth-form-group">
+                <label className="auth-label" htmlFor="email">Email Address</label>
+                <div className="auth-input-wrapper">
+                  <Mail size={16} className="auth-input-icon" />
+                  <input
+                    id="email"
+                    type="email"
+                    className="auth-input"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
                     required
                   />
                 </div>
               </div>
-            )}
 
-            <button type="submit" className="auth-submit-btn" disabled={loading}>
-              {loading ? (
-                <span className="auth-spinner"></span>
-              ) : (
-                isSignUp ? 'Sign Up' : 'Sign In'
+              <div className="auth-form-group">
+                <label className="auth-label" htmlFor="password">Password</label>
+                <div className="auth-input-wrapper">
+                  <Lock size={16} className="auth-input-icon" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    className="auth-input"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="auth-toggle-password"
+                    onClick={() => setShowPassword(prev => !prev)}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {isSignUp && (
+                <div className="auth-form-group">
+                  <label className="auth-label" htmlFor="confirmPassword">Confirm Password</label>
+                  <div className="auth-input-wrapper">
+                    <Lock size={16} className="auth-input-icon" />
+                    <input
+                      id="confirmPassword"
+                      type={showPassword ? 'text' : 'password'}
+                      className="auth-input"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
               )}
-            </button>
-          </form>
-        )}
 
-        <div className="auth-footer">
-          <p>
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button type="button" className="auth-link-btn" onClick={handleToggleMode}>
-              {isSignUp ? 'Sign In' : 'Register Here'}
-            </button>
-          </p>
+              <button type="submit" className="auth-submit-btn" disabled={loading}>
+                {loading ? (
+                  <span className="auth-spinner"></span>
+                ) : (
+                  isSignUp ? 'Sign Up' : 'Sign In'
+                )}
+              </button>
+            </form>
+          )}
+
+          <div className="auth-footer">
+            <p>
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button type="button" className="auth-link-btn" onClick={handleToggleMode}>
+                {isSignUp ? 'Sign In' : 'Register Here'}
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>

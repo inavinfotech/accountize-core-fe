@@ -1,12 +1,11 @@
 export function formatCurrency(amount) {
   if (amount == null || isNaN(amount)) return '₹0.00'
   const abs = Math.abs(amount)
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  const formatted = new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(abs)
+  return `₹${formatted}`
 }
 
 export function formatDate(dateStr) {

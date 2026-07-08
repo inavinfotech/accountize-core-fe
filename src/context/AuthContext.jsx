@@ -110,6 +110,19 @@ export function AuthProvider({ children }) {
 
   // ── MFA (TOTP) ──
   const enrollMFA = async (friendlyName = 'Authenticator App') => {
+    try {
+      // Fetch factors and clean up any existing unverified ones to avoid duplicate errors
+      const { data: factorsData } = await supabase.auth.mfa.listFactors()
+      if (factorsData?.all) {
+        const unverified = factorsData.all.filter(f => f.status === 'unverified')
+        for (const factor of unverified) {
+          await supabase.auth.mfa.unenroll({ factorId: factor.id })
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to clean up prior unverified factors:', err)
+    }
+
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
       friendlyName,
@@ -129,7 +142,7 @@ export function AuthProvider({ children }) {
 
   const unenrollMFA = async (factorId) => {
     const { data, error } = await supabase.auth.mfa.unenroll({
-      id: factorId,
+      factorId,
     })
     if (error) throw error
     return data

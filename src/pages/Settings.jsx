@@ -140,13 +140,22 @@ export default function Settings() {
     }
   }
 
-  const handleCancelEnroll = () => {
+  const handleCancelEnroll = async () => {
+    const factorId = enrollData?.id
     setEnrolling(false)
     setEnrollData(null)
     setVerifyCode('')
     setVerifyError('')
     setShowBackupCodes(false)
     setBackupCodes([])
+
+    if (factorId) {
+      try {
+        await unenrollMFA(factorId)
+      } catch (err) {
+        console.error('Failed to clean up unverified factor on cancel:', err)
+      }
+    }
   }
 
   const handleUnenroll = async (factorId) => {
@@ -421,7 +430,13 @@ export default function Settings() {
                 Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
               </p>
 
-              <div className="mfa-qr-container" dangerouslySetInnerHTML={{ __html: enrollData.totp.qr_code }} />
+              <div className="mfa-qr-container">
+                {enrollData.totp.qr_code.startsWith('data:') ? (
+                  <img src={enrollData.totp.qr_code} alt="MFA QR Code" />
+                ) : (
+                  <div dangerouslySetInnerHTML={{ __html: enrollData.totp.qr_code }} />
+                )}
+              </div>
 
               {/* Secret key fallback */}
               <div className="mfa-step-label" style={{ marginTop: 4 }}>Can't scan? Enter this key manually</div>

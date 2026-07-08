@@ -9,13 +9,13 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Accounts = lazy(() => import('./pages/Accounts'))
 const Expenses = lazy(() => import('./pages/Expenses'))
 const Verification = lazy(() => import('./pages/Verification'))
-const Security = lazy(() => import('./pages/Security'))
+const Settings = lazy(() => import('./pages/Settings'))
 const Login = lazy(() => import('./pages/Login'))
 const SharedLedger = lazy(() => import('./pages/SharedLedger'))
 const Transactions = lazy(() => import('./pages/Transactions'))
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
-  Calendar, LogOut, Shield
+  Calendar, LogOut, Settings as SettingsIcon
 } from 'lucide-react'
 
 function ProtectedRoute({ children }) {
@@ -90,7 +90,7 @@ function BottomNav() {
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
     { path: '/verification', icon: ShieldCheck, label: 'Verify' },
-    { path: '/security', icon: Shield, label: 'Security' },
+    { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ]
 
   return (
@@ -118,7 +118,7 @@ function Sidebar() {
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
     { path: '/verification', icon: ShieldCheck, label: 'Verification' },
-    { path: '/security', icon: Shield, label: 'Security' },
+    { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ]
 
   return (
@@ -190,7 +190,8 @@ function AppLayout() {
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/verification" element={<Verification />} />
-            <Route path="/security" element={<Security />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/security" element={<Navigate to="/settings" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

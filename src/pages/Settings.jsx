@@ -7,7 +7,7 @@ import {
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 
-export default function Security() {
+export default function Settings() {
   const { user, enrollMFA, challengeAndVerifyMFA, unenrollMFA, getMFAFactors, signOut } = useAuth()
 
   const [factors, setFactors] = useState([])
@@ -132,8 +132,8 @@ export default function Security() {
     <div className="animate-in">
       <div className="page-header">
         <div>
-          <h2>Security</h2>
-          <p>Manage authentication and account protection</p>
+          <h2>Settings</h2>
+          <p>Manage settings and account security</p>
         </div>
       </div>
 

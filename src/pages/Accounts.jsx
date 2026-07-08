@@ -28,6 +28,24 @@ export default function Accounts() {
   const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable', subtype: 'other' })
   const [newTxn, setNewTxn] = useState({ amount: '', description: '', date: '' })
 
+  const [syncWithOnline, setSyncWithOnline] = useState(false)
+  const [syncOnlineAccountId, setSyncOnlineAccountId] = useState('')
+
+  const selectedAccount = useMemo(() => {
+    if (!showAddTransaction) return null
+    return accounts.find(a => a.id === showAddTransaction)
+  }, [showAddTransaction, accounts])
+
+  const onlineAccounts = useMemo(() => {
+    return accounts.filter(a => a.type === 'self' && a.subtype === 'online')
+  }, [accounts])
+
+  useEffect(() => {
+    if (onlineAccounts.length > 0 && !syncOnlineAccountId) {
+      setSyncOnlineAccountId(onlineAccounts[0].id)
+    }
+  }, [onlineAccounts, syncOnlineAccountId])
+
   const [prevMonth, setPrevMonth] = useState(currentMonth)
 
   useEffect(() => {
@@ -97,20 +115,42 @@ export default function Accounts() {
 
   const handleOpenAddTransaction = (accountId) => {
     setNewTxn({ amount: '', description: '', date: getDefaultDate() })
+    setSyncWithOnline(false)
+    setSyncOnlineAccountId(onlineAccounts.length > 0 ? onlineAccounts[0].id : '')
     setShowAddTransaction(accountId)
   }
 
   async function handleAddTransaction(e) {
     e.preventDefault()
     try {
+      const amountVal = parseFloat(newTxn.amount)
       await createTransaction({
         account_id: showAddTransaction,
-        amount: parseFloat(newTxn.amount),
+        amount: amountVal,
         description: newTxn.description,
         month_year: currentMonth,
         created_at: newTxn.date ? new Date(newTxn.date).toISOString() : undefined
       })
+
+      if (syncWithOnline && selectedAccount && syncOnlineAccountId) {
+        const isReceivable = selectedAccount.type === 'receivable'
+        const onlineAmount = isReceivable ? -amountVal : amountVal
+        const onlineDesc = newTxn.description 
+          ? `${selectedAccount.name}: ${newTxn.description}` 
+          : `${selectedAccount.name}`
+
+        await createTransaction({
+          account_id: syncOnlineAccountId,
+          amount: onlineAmount,
+          description: onlineDesc,
+          month_year: currentMonth,
+          created_at: newTxn.date ? new Date(newTxn.date).toISOString() : undefined
+        })
+      }
+
       setNewTxn({ amount: '', description: '', date: '' })
+      setSyncWithOnline(false)
+      setSyncOnlineAccountId('')
       setShowAddTransaction(null)
       triggerRefresh()
     } catch (err) {
@@ -630,6 +670,55 @@ export default function Accounts() {
                 onChange={e => setNewTxn({ ...newTxn, description: e.target.value })}
               />
             </div>
+
+            {selectedAccount && (selectedAccount.type === 'receivable' || selectedAccount.type === 'payable') && onlineAccounts.length > 0 && (
+              <div style={{
+                marginTop: 12,
+                marginBottom: 16,
+                padding: '12px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={syncWithOnline}
+                    onChange={e => setSyncWithOnline(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>Sync with Online Account</span>
+                </label>
+                
+                {syncWithOnline && (
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: 4 }}>Select Online Account</label>
+                      <select
+                        className="form-input"
+                        value={syncOnlineAccountId}
+                        onChange={e => setSyncOnlineAccountId(e.target.value)}
+                        style={{ fontSize: '0.8rem', padding: '6px 10px', height: 'auto' }}
+                      >
+                        {onlineAccounts.map(acc => (
+                          <option key={acc.id} value={acc.id}>{acc.name} (Balance: {formatCurrency(acc.balance)})</option>
+                        ))}
+                      </select>
+                    </div>
+                    {newTxn.amount && !isNaN(parseFloat(newTxn.amount)) && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span>Auto-creates:</span>
+                        <strong className={`amount ${getAmountClass(selectedAccount.type === 'receivable' ? -parseFloat(newTxn.amount) : parseFloat(newTxn.amount))}`}>
+                          {formatCurrency(selectedAccount.type === 'receivable' ? -parseFloat(newTxn.amount) : parseFloat(newTxn.amount))}
+                        </strong>
+                        <span>in selected account.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowAddTransaction(null)}>Cancel</button>
               <button type="submit" className="btn btn-primary">Add Transaction</button>

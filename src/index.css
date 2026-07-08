@@ -2723,5 +2723,34 @@ tbody tr:last-child td {
   }
 }
 
+/* ===== MFA Backup Codes Grid Styling ===== */
+.mfa-backup-codes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin: 16px 0 24px 0;
+}
+
+.mfa-backup-code-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.mfa-backup-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
 
 

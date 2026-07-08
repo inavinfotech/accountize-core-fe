@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import {
   Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2,
@@ -47,6 +48,8 @@ export default function Login() {
   const [mfaCode, setMfaCode] = useState('')
   const [mfaLoading, setMfaLoading] = useState(false)
   const [mfaError, setMfaError] = useState('')
+  const [useBackupCode, setUseBackupCode] = useState(false)
+  const [backupCode, setBackupCode] = useState('')
 
   const handleToggleMode = () => {
     setIsSignUp(prev => !prev)
@@ -170,6 +173,39 @@ export default function Login() {
       console.error(err)
       setMfaError(err.message || 'Invalid verification code. Please try again.')
       setMfaCode('')
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleBackupCodeVerify = async (e) => {
+    e.preventDefault()
+    setMfaError('')
+
+    if (!backupCode.trim()) {
+      setMfaError('Please enter a recovery code.')
+      return
+    }
+
+    setMfaLoading(true)
+    try {
+      const { data: isSuccess, error: rpcError } = await supabase.rpc('bypass_mfa_with_backup_code', {
+        plain_code: backupCode.trim().toUpperCase()
+      })
+
+      if (rpcError) throw rpcError
+
+      if (isSuccess) {
+        setMfaRequired(false)
+        setBackupCode('')
+        setUseBackupCode(false)
+        navigate('/', { replace: true })
+      } else {
+        setMfaError('Invalid or already used recovery code.')
+      }
+    } catch (err) {
+      console.error(err)
+      setMfaError(err.message || 'Failed to verify recovery code.')
     } finally {
       setMfaLoading(false)
     }
@@ -468,9 +504,13 @@ export default function Login() {
               <div className="mfa-verify-icon">
                 <Shield size={28} />
               </div>
-              <h2 className="mfa-verify-title">Two-Factor Authentication</h2>
+              <h2 className="mfa-verify-title">
+                {useBackupCode ? 'MFA Recovery' : 'Two-Factor Authentication'}
+              </h2>
               <p className="mfa-verify-subtitle">
-                Enter the 6-digit code from your authenticator app
+                {useBackupCode 
+                  ? 'Enter one of your 8-character recovery codes (e.g. XXXX-XXXX) to sign in and disable MFA.'
+                  : 'Enter the 6-digit code from your authenticator app'}
               </p>
 
               {mfaError && (
@@ -480,30 +520,85 @@ export default function Login() {
                 </div>
               )}
 
-              <form onSubmit={handleMFAVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                <input
-                  type="text"
-                  className="mfa-code-input"
-                  value={mfaCode}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                    setMfaCode(val)
-                  }}
-                  placeholder="000000"
-                  autoFocus
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                />
+              {useBackupCode ? (
+                <form onSubmit={handleBackupCodeVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                  <input
+                    type="text"
+                    className="mfa-code-input"
+                    value={backupCode}
+                    onChange={e => {
+                      let val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()
+                      if (val.length > 4) {
+                        val = val.slice(0, 4) + '-' + val.slice(4)
+                      }
+                      setBackupCode(val)
+                    }}
+                    placeholder="XXXX-XXXX"
+                    autoFocus
+                    style={{ textTransform: 'uppercase', letterSpacing: '2px' }}
+                  />
 
-                <button
-                  type="submit"
-                  className="auth-submit-btn"
-                  disabled={mfaLoading || mfaCode.length !== 6}
-                  style={{ maxWidth: 240 }}
-                >
-                  {mfaLoading ? <span className="auth-spinner"></span> : 'Verify'}
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    className="auth-submit-btn"
+                    disabled={mfaLoading || backupCode.length !== 9}
+                    style={{ maxWidth: 240 }}
+                  >
+                    {mfaLoading ? <span className="auth-spinner"></span> : 'Verify Code'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="auth-link-btn"
+                    onClick={() => {
+                      setUseBackupCode(false)
+                      setMfaError('')
+                      setBackupCode('')
+                    }}
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    Use Authenticator App Instead
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleMFAVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                  <input
+                    type="text"
+                    className="mfa-code-input"
+                    value={mfaCode}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                      setMfaCode(val)
+                    }}
+                    placeholder="000000"
+                    autoFocus
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                  />
+
+                  <button
+                    type="submit"
+                    className="auth-submit-btn"
+                    disabled={mfaLoading || mfaCode.length !== 6}
+                    style={{ maxWidth: 240 }}
+                  >
+                    {mfaLoading ? <span className="auth-spinner"></span> : 'Verify'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="auth-link-btn"
+                    onClick={() => {
+                      setUseBackupCode(true)
+                      setMfaError('')
+                      setMfaCode('')
+                    }}
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    Lost your device? Use recovery code
+                  </button>
+                </form>
+              )}
 
               <button
                 type="button"
@@ -512,10 +607,12 @@ export default function Login() {
                   signOut().catch(console.error)
                   setMfaRequired(false)
                   setMfaCode('')
+                  setBackupCode('')
+                  setUseBackupCode(false)
                   setMfaError('')
                   setMfaFactorId(null)
                 }}
-                style={{ marginTop: 4 }}
+                style={{ marginTop: 12 }}
               >
                 ← Back to Sign In
               </button>

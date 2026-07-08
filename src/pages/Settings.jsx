@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import {
   Shield, ShieldCheck, ShieldAlert, Smartphone, Copy, Check,
   Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock, LogOut
@@ -22,6 +23,11 @@ export default function Settings() {
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [verifyError, setVerifyError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  // Backup codes state
+  const [backupCodes, setBackupCodes] = useState([])
+  const [showBackupCodes, setShowBackupCodes] = useState(false)
+  const [copiedCodes, setCopiedCodes] = useState(false)
 
   // Unenroll confirm
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -59,6 +65,44 @@ export default function Settings() {
     }
   }
 
+  const generateBackupCodes = () => {
+    const codes = []
+    for (let i = 0; i < 8; i++) {
+      const part1 = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const part2 = Math.random().toString(36).substring(2, 6).toUpperCase()
+      codes.push(`${part1}-${part2}`)
+    }
+    return codes
+  }
+
+  const handleCopyBackupCodes = () => {
+    const text = backupCodes.join('\n')
+    navigator.clipboard.writeText(text)
+    setCopiedCodes(true)
+    setTimeout(() => setCopiedCodes(false), 2000)
+  }
+
+  const handleDownloadBackupCodes = () => {
+    const text = `ACCOUNTIFY MFA RECOVERY CODES\n\nSave these codes in a secure place. Each code can only be used once.\n\n${backupCodes.join('\n')}\n\nGenerated on: ${new Date().toLocaleString()}`
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `accountify-mfa-recovery-codes.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleFinishEnroll = () => {
+    setSuccess('MFA has been successfully enabled! Your account is now protected with two-factor authentication.')
+    setEnrolling(false)
+    setEnrollData(null)
+    setShowBackupCodes(false)
+    setBackupCodes([])
+  }
+
   const handleVerifyEnrollment = async (e) => {
     e.preventDefault()
     setVerifyError('')
@@ -71,9 +115,20 @@ export default function Settings() {
     setVerifyLoading(true)
     try {
       await challengeAndVerifyMFA(enrollData.id, verifyCode)
-      setSuccess('MFA has been successfully enabled! Your account is now protected with two-factor authentication.')
-      setEnrolling(false)
-      setEnrollData(null)
+      
+      // Generate and save backup codes
+      const codes = generateBackupCodes()
+      const rows = codes.map(code => ({ code, user_id: user.id, used: false }))
+      
+      // Delete any old codes
+      await supabase.from('mfa_backup_codes').delete().eq('user_id', user.id)
+      
+      // Insert new codes
+      const { error: dbError } = await supabase.from('mfa_backup_codes').insert(rows)
+      if (dbError) throw dbError
+
+      setBackupCodes(codes)
+      setShowBackupCodes(true)
       setVerifyCode('')
       await loadFactors()
     } catch (err) {
@@ -90,6 +145,8 @@ export default function Settings() {
     setEnrollData(null)
     setVerifyCode('')
     setVerifyError('')
+    setShowBackupCodes(false)
+    setBackupCodes([])
   }
 
   const handleUnenroll = async (factorId) => {
@@ -319,69 +376,107 @@ export default function Settings() {
 
       {/* MFA Enrollment Modal */}
       {enrolling && enrollData && (
-        <Modal title="Set Up Two-Factor Authentication" onClose={handleCancelEnroll}>
-          <div className="mfa-setup-card">
-            {/* Step 1: Scan QR */}
-            <div className="mfa-step-label">Step 1</div>
-            <p className="mfa-step-instruction">
-              Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
-            </p>
+        <Modal 
+          title={showBackupCodes ? "MFA Recovery Codes" : "Set Up Two-Factor Authentication"} 
+          onClose={showBackupCodes ? undefined : handleCancelEnroll}
+        >
+          {showBackupCodes ? (
+            <div className="mfa-setup-card">
+              <p className="mfa-step-instruction" style={{ marginBottom: 16 }}>
+                Please save these backup recovery codes in a secure location (such as a password manager). 
+                If you lose access to your authenticator app, these codes are the <strong>only way</strong> to regain access to your account.
+              </p>
 
-            <div className="mfa-qr-container" dangerouslySetInnerHTML={{ __html: enrollData.totp.qr_code }} />
-
-            {/* Secret key fallback */}
-            <div className="mfa-step-label" style={{ marginTop: 4 }}>Can't scan? Enter this key manually</div>
-            <div className="mfa-secret-key">
-              <span>{enrollData.totp.secret}</span>
-              <button onClick={handleCopySecret} title="Copy secret key">
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
-            </div>
-
-            {/* Step 2: Verify */}
-            <div className="mfa-step-label" style={{ marginTop: 8 }}>Step 2</div>
-            <p className="mfa-step-instruction">
-              Enter the 6-digit code from your authenticator app to verify setup
-            </p>
-
-            {verifyError && (
-              <div className="auth-alert error" style={{ width: '100%', margin: 0 }}>
-                <AlertCircle size={16} />
-                <span>{verifyError}</span>
+              <div className="mfa-backup-codes-grid">
+                {backupCodes.map((code, idx) => (
+                  <div key={idx} className="mfa-backup-code-item">
+                    {code}
+                  </div>
+                ))}
               </div>
-            )}
 
-            <form onSubmit={handleVerifyEnrollment} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <input
-                type="text"
-                className="mfa-code-input"
-                value={verifyCode}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                  setVerifyCode(val)
-                }}
-                placeholder="000000"
-                autoFocus
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
-
-              <div className="modal-actions" style={{ width: '100%', marginTop: 0 }}>
-                <button type="button" className="btn btn-secondary" onClick={handleCancelEnroll}>Cancel</button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={verifyLoading || verifyCode.length !== 6}
-                >
-                  {verifyLoading ? (
-                    <div className="loading-spinner" style={{ width: 14, height: 14 }} />
-                  ) : (
-                    <><ShieldCheck size={14} /> Verify &amp; Enable</>
-                  )}
+              <div className="mfa-backup-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopyBackupCodes}>
+                  {copiedCodes ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy Codes</>}
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleDownloadBackupCodes}>
+                  Download as TXT
                 </button>
               </div>
-            </form>
-          </div>
+
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ width: '100%', marginTop: 24 }}
+                onClick={handleFinishEnroll}
+              >
+                I have saved these codes
+              </button>
+            </div>
+          ) : (
+            <div className="mfa-setup-card">
+              {/* Step 1: Scan QR */}
+              <div className="mfa-step-label">Step 1</div>
+              <p className="mfa-step-instruction">
+                Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+              </p>
+
+              <div className="mfa-qr-container" dangerouslySetInnerHTML={{ __html: enrollData.totp.qr_code }} />
+
+              {/* Secret key fallback */}
+              <div className="mfa-step-label" style={{ marginTop: 4 }}>Can't scan? Enter this key manually</div>
+              <div className="mfa-secret-key">
+                <span>{enrollData.totp.secret}</span>
+                <button onClick={handleCopySecret} title="Copy secret key">
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+
+              {/* Step 2: Verify */}
+              <div className="mfa-step-label" style={{ marginTop: 8 }}>Step 2</div>
+              <p className="mfa-step-instruction">
+                Enter the 6-digit code from your authenticator app to verify setup
+              </p>
+
+              {verifyError && (
+                <div className="auth-alert error" style={{ width: '100%', margin: 0 }}>
+                  <AlertCircle size={16} />
+                  <span>{verifyError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyEnrollment} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                <input
+                  type="text"
+                  className="mfa-code-input"
+                  value={verifyCode}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                    setVerifyCode(val)
+                  }}
+                  placeholder="000000"
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                />
+
+                <div className="modal-actions" style={{ width: '100%', marginTop: 0 }}>
+                  <button type="button" className="btn btn-secondary" onClick={handleCancelEnroll}>Cancel</button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={verifyLoading || verifyCode.length !== 6}
+                  >
+                    {verifyLoading ? (
+                      <div className="loading-spinner" style={{ width: 14, height: 14 }} />
+                    ) : (
+                      <><ShieldCheck size={14} /> Verify &amp; Enable</>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </Modal>
       )}
 

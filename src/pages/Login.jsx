@@ -27,7 +27,7 @@ function GitHubIcon() {
 }
 
 export default function Login() {
-  const { signIn, signUp, signInWithOAuth, signInWithMagicLink, challengeAndVerifyMFA, getMFAFactors } = useAuth()
+  const { signIn, signUp, signInWithOAuth, signInWithMagicLink, challengeAndVerifyMFA, getMFAFactors, isMfaRequired, signOut } = useAuth()
   const navigate = useNavigate()
 
   const [isSignUp, setIsSignUp] = useState(false)
@@ -182,70 +182,28 @@ export default function Login() {
     }
   }, [mfaCode])
 
-  // MFA Verification Screen
-  if (mfaRequired) {
-    return (
-      <div className="auth-container single-layout">
-        <div className="auth-card">
-          <div className="mfa-verify-container">
-            <div className="mfa-verify-icon">
-              <Shield size={28} />
-            </div>
-            <h2 className="mfa-verify-title">Two-Factor Authentication</h2>
-            <p className="mfa-verify-subtitle">
-              Enter the 6-digit code from your authenticator app
-            </p>
+  // Handle MFA step up check on mount or when auth state updates it
+  useEffect(() => {
+    if (isMfaRequired) {
+      async function setupMfaPrompt() {
+        try {
+          const factors = await getMFAFactors()
+          const verifiedFactors = factors?.totp?.filter(f => f.status === 'verified') || []
+          if (verifiedFactors.length > 0) {
+            setMfaRequired(true)
+            setMfaFactorId(verifiedFactors[0].id)
+          }
+        } catch (err) {
+          console.error('Failed to load MFA factors on mount/update:', err)
+        }
+      }
+      setupMfaPrompt()
+    } else {
+      setMfaRequired(false)
+      setMfaFactorId(null)
+    }
+  }, [isMfaRequired])
 
-            {mfaError && (
-              <div className="auth-alert error" style={{ width: '100%' }}>
-                <AlertCircle size={16} />
-                <span>{mfaError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleMFAVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <input
-                type="text"
-                className="mfa-code-input"
-                value={mfaCode}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                  setMfaCode(val)
-                }}
-                placeholder="000000"
-                autoFocus
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
-
-              <button
-                type="submit"
-                className="auth-submit-btn"
-                disabled={mfaLoading || mfaCode.length !== 6}
-                style={{ maxWidth: 240 }}
-              >
-                {mfaLoading ? <span className="auth-spinner"></span> : 'Verify'}
-              </button>
-            </form>
-
-            <button
-              type="button"
-              className="auth-link-btn"
-              onClick={() => {
-                setMfaRequired(false)
-                setMfaCode('')
-                setMfaError('')
-                setMfaFactorId(null)
-              }}
-              style={{ marginTop: 4 }}
-            >
-              ← Back to Sign In
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="auth-container">
@@ -502,6 +460,69 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {mfaRequired && (
+        <div className="mfa-overlay animate-fade-in">
+          <div className="mfa-modal-card animate-scale-up">
+            <div className="mfa-verify-container">
+              <div className="mfa-verify-icon">
+                <Shield size={28} />
+              </div>
+              <h2 className="mfa-verify-title">Two-Factor Authentication</h2>
+              <p className="mfa-verify-subtitle">
+                Enter the 6-digit code from your authenticator app
+              </p>
+
+              {mfaError && (
+                <div className="auth-alert error" style={{ width: '100%' }}>
+                  <AlertCircle size={16} />
+                  <span>{mfaError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleMFAVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                <input
+                  type="text"
+                  className="mfa-code-input"
+                  value={mfaCode}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                    setMfaCode(val)
+                  }}
+                  placeholder="000000"
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                />
+
+                <button
+                  type="submit"
+                  className="auth-submit-btn"
+                  disabled={mfaLoading || mfaCode.length !== 6}
+                  style={{ maxWidth: 240 }}
+                >
+                  {mfaLoading ? <span className="auth-spinner"></span> : 'Verify'}
+                </button>
+              </form>
+
+              <button
+                type="button"
+                className="auth-link-btn"
+                onClick={() => {
+                  signOut().catch(console.error)
+                  setMfaRequired(false)
+                  setMfaCode('')
+                  setMfaError('')
+                  setMfaFactorId(null)
+                }}
+                style={{ marginTop: 4 }}
+              >
+                ← Back to Sign In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

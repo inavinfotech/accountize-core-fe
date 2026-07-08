@@ -151,6 +151,7 @@ export function AuthProvider({ children }) {
     user,
     session,
     loading,
+    isMfaRequired,
     signIn,
     signUp,
     signOut,

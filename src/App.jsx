@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, isMfaRequired, loading } = useAuth()
   
   if (loading) {
     return (
@@ -29,7 +29,7 @@ function ProtectedRoute({ children }) {
     )
   }
   
-  if (!user) {
+  if (!user || isMfaRequired) {
     return <Navigate to="/login" replace />
   }
   
@@ -37,7 +37,7 @@ function ProtectedRoute({ children }) {
 }
 
 function LoginRoute() {
-  const { user, loading } = useAuth()
+  const { user, isMfaRequired, loading } = useAuth()
   
   if (loading) {
     return (
@@ -47,7 +47,7 @@ function LoginRoute() {
     )
   }
   
-  if (user) {
+  if (user && !isMfaRequired) {
     return <Navigate to="/" replace />
   }
   

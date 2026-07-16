@@ -3,7 +3,10 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 're
 import { ReactLenis, useLenis } from 'lenis/react'
 import { AppProvider, useApp } from './context/AppContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { NotificationProvider } from './context/NotificationContext'
 import TopRightMenu from './components/TopRightMenu'
+import NotificationBell from './components/NotificationBell'
+import ToastContainer from './components/ToastContainer'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Accounts = lazy(() => import('./pages/Accounts'))
@@ -78,6 +81,7 @@ function TopBar() {
             ))}
           </select>
         </div>
+        <NotificationBell />
         <TopRightMenu />
       </div>
     </header>
@@ -166,6 +170,7 @@ function Sidebar() {
 function AppLayout() {
   return (
     <div className="app-layout">
+      <ToastContainer />
       {/* Mobile-only header */}
       <TopBar />
 
@@ -174,6 +179,7 @@ function AppLayout() {
 
       {/* Desktop-only top right menu */}
       <div className="desktop-top-right-menu">
+        <NotificationBell />
         <TopRightMenu />
       </div>
 
@@ -222,26 +228,28 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
         <AuthProvider>
-          <AppProvider>
-            <Suspense fallback={
-              <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-                <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-              </div>
-            }>
-              <Routes>
-                <Route path="/login" element={<LoginRoute />} />
-                <Route path="/shared/:token" element={<SharedLedger />} />
-                <Route 
-                  path="/*" 
-                  element={
-                    <ProtectedRoute>
-                      <AppLayout />
-                    </ProtectedRoute>
-                  } 
-                />
-              </Routes>
-            </Suspense>
-          </AppProvider>
+          <NotificationProvider>
+            <AppProvider>
+              <Suspense fallback={
+                <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+                  <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+                </div>
+              }>
+                <Routes>
+                  <Route path="/login" element={<LoginRoute />} />
+                  <Route path="/shared/:token" element={<SharedLedger />} />
+                  <Route 
+                    path="/*" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout />
+                      </ProtectedRoute>
+                    } 
+                  />
+                </Routes>
+              </Suspense>
+            </AppProvider>
+          </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>
     </ReactLenis>

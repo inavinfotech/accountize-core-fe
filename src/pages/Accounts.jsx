@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts } from '../lib/db'
+import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -8,7 +8,7 @@ import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Users, ArrowUpRight, ArrowDownRight, 
   UserPlus, Wallet, ChevronDown, ChevronUp, Receipt, Download,
-  Share2, LinkIcon, Link2Off, Check, Copy
+  Share2, LinkIcon, Link2Off, Check, Copy, X
 } from 'lucide-react'
 
 export default function Accounts() {
@@ -25,7 +25,6 @@ export default function Accounts() {
   const [sharedLinks, setSharedLinks] = useState({}) // { accountId: token }
   const [linkedAccounts, setLinkedAccounts] = useState([])
 
-  // Form state
   const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable', subtype: 'other' })
   const [newTxn, setNewTxn] = useState({ amount: '', description: '', date: '' })
 
@@ -236,6 +235,24 @@ export default function Accounts() {
     }
   }
 
+  const handleVerifyTransaction = async (txnId) => {
+    try {
+      await verifyTransaction(txnId)
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to verify transaction:', err)
+    }
+  }
+
+  const handleRejectTransaction = async (txnId) => {
+    try {
+      await rejectTransaction(txnId)
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to reject transaction:', err)
+    }
+  }
+
   const { filtered, totalBalance, missingDefaults } = useMemo(() => {
     const filteredAccs = accounts
       .filter(a => a.type === activeTab)
@@ -369,133 +386,164 @@ export default function Accounts() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {filtered.map(account => (
-            <div key={account.id} className="card" style={{ padding: 0 }}>
-              {/* Account Header */}
-              <div
-                className="account-header"
-                onClick={() => setExpandedAccount(expandedAccount === account.id ? null : account.id)}
-              >
-                <div className="account-info">
-                  <div style={{
-                    width: 42, height: 42, borderRadius: 'var(--radius-md)',
-                    background: 'var(--accent-gradient)', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 700, fontSize: '0.8rem', color: 'white',
-                    flexShrink: 0
-                  }}>
-                    {getInitials(account.name)}
-                  </div>
-                  <div className="account-name-container">
-                    <div className="account-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {account.name}
-                      {linkedAccounts.some(la => la.receivable_account_id === account.id || la.payable_account_id === account.id) && (
-                        <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--indigo-bg)', color: 'var(--indigo)', border: '1px solid var(--indigo-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <Users size={8} /> Linked
-                        </span>
-                      )}
+          {filtered.map(account => {
+            const isLinked = linkedAccounts.some(la => la.receivable_account_id === account.id || la.payable_account_id === account.id);
+            return (
+              <div key={account.id} className="card" style={{ padding: 0 }}>
+                {/* Account Header */}
+                <div
+                  className="account-header"
+                  onClick={() => setExpandedAccount(expandedAccount === account.id ? null : account.id)}
+                >
+                  <div className="account-info">
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 'var(--radius-md)',
+                      background: 'var(--accent-gradient)', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: '0.8rem', color: 'white',
+                      flexShrink: 0
+                    }}>
+                      {getInitials(account.name)}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {account.transactions?.length || 0} transactions
-                    </div>
-                  </div>
-                </div>
-                <div className="account-meta">
-                  <span className={`amount ${getAmountClass(account.balance, account.type)}`} style={{ fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center' }}>
-                    {formatCurrency(account.balance)}
-                    <InfoButton 
-                      metricId="accountBalance" 
-                      contextValues={{ accountName: account.name, balance: account.balance, txnCount: account.transactions?.length || 0 }} 
-                    />
-                  </span>
-                  {expandedAccount === account.id ? <ChevronUp size={18} color="var(--text-muted)" /> : <ChevronDown size={18} color="var(--text-muted)" />}
-                </div>
-              </div>
-
-              {/* Expanded Transactions */}
-              {expandedAccount === account.id && (
-                <div style={{
-                  borderTop: '1px solid var(--border-color)',
-                  padding: '16px 20px',
-                  animation: 'slideUp 0.25s ease'
-                }}>
-                  {/* Tabular transactions list */}
-                  <div className="table-wrapper mb-16" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', width: '100%' }}>
-                    <table style={{ width: '100%' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ padding: '8px 12px', fontSize: '0.7rem' }}>Date</th>
-                          <th style={{ padding: '8px 12px', fontSize: '0.7rem' }}>Description</th>
-                          <th style={{ padding: '8px 12px', fontSize: '0.7rem', textAlign: 'right' }}>Amount</th>
-                          <th style={{ padding: '8px 12px', fontSize: '0.7rem', textAlign: 'center', width: '120px' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {account.transactions?.map(txn => (
-                           <tr 
-                            key={txn.id} 
-                            onClick={() => {
-                              setEditingTransaction({
-                                id: txn.id,
-                                amount: txn.amount,
-                                description: txn.description || '',
-                                date: txn.created_at ? txn.created_at.split('T')[0] : getDefaultDate()
-                              })
-                            }}
-                            style={{ cursor: 'pointer' }}
-                            title="Click to edit transaction"
-                          >
-                            <td style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {formatDate(txn.created_at)}
-                            </td>
-                            <td style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                              {txn.description || <span style={{ color: 'var(--text-muted)' }}>-</span>}
-                            </td>
-                            <td className={`amount ${getAmountClass(txn.amount, `${account.type}-txn`)}`} style={{ padding: '8px 12px', fontSize: '0.75rem', textAlign: 'right' }}>
-                              {formatCurrency(Math.abs(txn.amount))}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => setEditingTransaction({
-                                    id: txn.id,
-                                    amount: txn.amount,
-                                    description: txn.description || '',
-                                    date: txn.created_at ? txn.created_at.split('T')[0] : getDefaultDate()
-                                  })}
-                                  title="Edit Transaction"
-                                  style={{ padding: '2px 6px', height: 'auto', fontSize: '0.7rem' }}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => setDeleteConfirm({
-                                    type: 'transaction',
-                                    id: txn.id,
-                                    label: txn.description,
-                                    amount: txn.amount
-                                  })}
-                                  style={{ color: 'var(--red)', padding: '2px 6px', height: 'auto', fontSize: '0.7rem' }}
-                                  title="Delete Transaction"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        {(!account.transactions || account.transactions.length === 0) && (
-                          <tr>
-                            <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                              No transactions recorded for this account.
-                            </td>
-                          </tr>
+                    <div className="account-name-container">
+                      <div className="account-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {account.name}
+                        {isLinked && (
+                          <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--indigo-bg)', color: 'var(--indigo)', border: '1px solid var(--indigo-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <Users size={8} /> Linked
+                          </span>
                         )}
-                      </tbody>
-                    </table>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {account.transactions?.length || 0} transactions
+                      </div>
+                    </div>
                   </div>
+                  <div className="account-meta">
+                    <span className={`amount ${getAmountClass(account.balance, account.type)}`} style={{ fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center' }}>
+                      {formatCurrency(account.balance)}
+                      <InfoButton 
+                        metricId="accountBalance" 
+                        contextValues={{ accountName: account.name, balance: account.balance, txnCount: account.transactions?.length || 0 }} 
+                      />
+                    </span>
+                    {expandedAccount === account.id ? <ChevronUp size={18} color="var(--text-muted)" /> : <ChevronDown size={18} color="var(--text-muted)" />}
+                  </div>
+                </div>
+
+                {/* Expanded Transactions */}
+                {expandedAccount === account.id && (
+                  <div style={{
+                    borderTop: '1px solid var(--border-color)',
+                    padding: '16px 20px',
+                    animation: 'slideUp 0.25s ease'
+                  }}>
+                    {/* Tabular transactions list */}
+                    <div className="table-wrapper mb-16" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', width: '100%' }}>
+                      <table style={{ width: '100%' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '8px 12px', fontSize: '0.7rem' }}>Date</th>
+                            <th style={{ padding: '8px 12px', fontSize: '0.7rem' }}>Description</th>
+                            <th style={{ padding: '8px 12px', fontSize: '0.7rem', textAlign: 'right' }}>Amount</th>
+                            <th style={{ padding: '8px 12px', fontSize: '0.7rem', textAlign: 'center', width: '120px' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {account.transactions?.map(txn => (
+                             <tr 
+                              key={txn.id} 
+                              onClick={() => {
+                                if (account.type === 'payable' && (txn.is_shared || isLinked)) return;
+                                setEditingTransaction({
+                                  id: txn.id,
+                                  amount: txn.amount,
+                                  description: txn.description || '',
+                                  date: txn.created_at ? txn.created_at.split('T')[0] : getDefaultDate()
+                                })
+                              }}
+                              style={{ cursor: (account.type === 'payable' && (txn.is_shared || isLinked)) ? 'default' : 'pointer' }}
+                              title={(account.type === 'payable' && (txn.is_shared || isLinked)) ? '' : "Click to edit transaction"}
+                            >
+                              <td style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                {formatDate(txn.created_at)}
+                              </td>
+                              <td style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 500 }}>
+                                {txn.description || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                              </td>
+                              <td className={`amount ${getAmountClass(txn.amount, `${account.type}-txn`)}`} style={{ padding: '8px 12px', fontSize: '0.75rem', textAlign: 'right' }}>
+                                {formatCurrency(Math.abs(txn.amount))}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                {account.type === 'payable' && (txn.is_shared || isLinked) ? (
+                                  txn.verification_status === 'pending' ? (
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                      <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => handleVerifyTransaction(txn.id)}
+                                        style={{ color: 'var(--green)', padding: '2px 6px', height: 'auto', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 2 }}
+                                        title="Approve Transaction"
+                                      >
+                                        <Check size={12} /> Approve
+                                      </button>
+                                      <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => handleRejectTransaction(txn.id)}
+                                        style={{ color: 'var(--red)', padding: '2px 6px', height: 'auto', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 2 }}
+                                        title="Reject Transaction"
+                                      >
+                                        <X size={12} /> Reject
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)', padding: '2px 8px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                      <Check size={10} /> Sync Verified
+                                    </span>
+                                  )
+                                ) : (
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                    <button
+                                      className="btn btn-ghost btn-sm"
+                                      onClick={() => setEditingTransaction({
+                                        id: txn.id,
+                                        amount: txn.amount,
+                                        description: txn.description || '',
+                                        date: txn.created_at ? txn.created_at.split('T')[0] : getDefaultDate()
+                                      })}
+                                      title="Edit Transaction"
+                                      style={{ padding: '2px 6px', height: 'auto', fontSize: '0.7rem' }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      className="btn btn-ghost btn-sm"
+                                      onClick={() => setDeleteConfirm({
+                                        type: 'transaction',
+                                        id: txn.id,
+                                        label: txn.description,
+                                        amount: txn.amount
+                                      })}
+                                      style={{ color: 'var(--red)', padding: '2px 6px', height: 'auto', fontSize: '0.7rem' }}
+                                      title="Delete Transaction"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          {(!account.transactions || account.transactions.length === 0) && (
+                            <tr>
+                              <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                No transactions recorded for this account.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
 
                    <div className="account-actions">
                      <button
@@ -596,7 +644,8 @@ export default function Accounts() {
                 </div>
               )}
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

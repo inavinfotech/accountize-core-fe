@@ -573,7 +573,7 @@ export async function rejectTransaction(transactionId) {
     .update({ verification_status: 'rejected' })
     .eq('id', transactionId)
     .select()
-    .single()
+    .maybeSingle()
   if (error) throw error
   return data
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { getTransactions, getAccounts, updateTransaction, deleteTransaction, verifyTransaction, rejectTransaction } from '../lib/db'
+import { getTransactions, getAccounts, updateTransaction, deleteTransaction, verifyTransaction, rejectTransaction, getLinkedAccounts } from '../lib/db'
 import { formatCurrency, getAmountClass, formatDate } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -14,6 +14,7 @@ export default function Transactions() {
   const [searchParams] = useSearchParams()
   const [transactions, setTransactions] = useState([])
   const [accounts, setAccounts] = useState([])
+  const [linkedAccounts, setLinkedAccounts] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Filters State
@@ -39,13 +40,15 @@ export default function Transactions() {
   async function loadData() {
     try {
       setLoading(true)
-      // Fetch all transactions across all months
-      const txs = await getTransactions()
+      // Fetch all transactions, accounts, and linked accounts
+      const [txs, accs, linked] = await Promise.all([
+        getTransactions(),
+        getAccounts(),
+        getLinkedAccounts()
+      ])
       setTransactions(txs)
-      
-      // Fetch all accounts
-      const accs = await getAccounts()
       setAccounts(accs)
+      setLinkedAccounts(linked)
     } catch (err) {
       console.error('Failed to load transactions list:', err)
     } finally {
@@ -372,35 +375,41 @@ export default function Transactions() {
                           {formatCurrency(Math.abs(txn.amount))}
                         </td>
                         <td style={{ padding: '6px 12px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                            <button
-                              className="btn btn-ghost btn-icon btn-sm"
-                              onClick={() => setEditingTransaction({
-                                id: txn.id,
-                                amount: txn.amount,
-                                description: txn.description || '',
-                                date: txn.created_at ? txn.created_at.split('T')[0] : ''
-                              })}
-                              title="Edit Transaction"
-                              type="button"
-                              style={{ width: 32, height: 32 }}
-                            >
-                              <Edit2 size={15} />
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-icon btn-sm"
-                              onClick={() => setDeleteConfirm({
-                                id: txn.id,
-                                amount: txn.amount,
-                                label: txn.description
-                              })}
-                              style={{ color: 'var(--red)', width: 32, height: 32 }}
-                              title="Delete Transaction"
-                              type="button"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
+                          {acc.type === 'payable' && (txn.is_shared || linkedAccounts.some(la => la.receivable_account_id === acc.id || la.payable_account_id === acc.id)) ? (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'var(--bg-secondary)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: 12 }}>
+                              Linked Sync
+                            </span>
+                          ) : (
+                            <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                              <button
+                                className="btn btn-ghost btn-icon btn-sm"
+                                onClick={() => setEditingTransaction({
+                                  id: txn.id,
+                                  amount: txn.amount,
+                                  description: txn.description || '',
+                                  date: txn.created_at ? txn.created_at.split('T')[0] : ''
+                                })}
+                                title="Edit Transaction"
+                                type="button"
+                                style={{ width: 32, height: 32 }}
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-icon btn-sm"
+                                onClick={() => setDeleteConfirm({
+                                  id: txn.id,
+                                  amount: txn.amount,
+                                  label: txn.description
+                                })}
+                                style={{ color: 'var(--red)', width: 32, height: 32 }}
+                                title="Delete Transaction"
+                                type="button"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )

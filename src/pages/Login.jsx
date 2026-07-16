@@ -31,6 +31,9 @@ export default function Login() {
   const { signIn, signUp, signInWithOAuth, signInWithMagicLink, challengeAndVerifyMFA, getMFAFactors, isMfaRequired, signOut } = useAuth()
   const navigate = useNavigate()
 
+  const searchParams = new URLSearchParams(window.location.search)
+  const redirectUrl = searchParams.get('redirect') || '/'
+
   const [isSignUp, setIsSignUp] = useState(false)
   const [authMethod, setAuthMethod] = useState('password') // 'password' | 'magic'
   const [email, setEmail] = useState('')
@@ -64,7 +67,8 @@ export default function Login() {
     setSocialLoading(provider)
     setError('')
     try {
-      await signInWithOAuth(provider)
+      const redirectOption = redirectUrl !== '/' ? { redirectTo: `${window.location.origin}${redirectUrl}` } : {}
+      await signInWithOAuth(provider, redirectOption)
     } catch (err) {
       console.error(err)
       const providerName = provider.charAt(0).toUpperCase() + provider.slice(1)
@@ -90,7 +94,8 @@ export default function Login() {
 
     setLoading(true)
     try {
-      await signInWithMagicLink(email)
+      const redirectOption = redirectUrl !== '/' ? { emailRedirectTo: `${window.location.origin}${redirectUrl}` } : {}
+      await signInWithMagicLink(email, redirectOption)
       setSuccessMsg('Magic link sent! Check your email inbox and click the link to sign in.')
     } catch (err) {
       console.error(err)
@@ -146,7 +151,7 @@ export default function Login() {
           // MFA not available or no factors — proceed normally
         }
         
-        navigate('/', { replace: true })
+        navigate(redirectUrl, { replace: true })
       }
     } catch (err) {
       console.error(err)
@@ -168,7 +173,7 @@ export default function Login() {
     setMfaLoading(true)
     try {
       await challengeAndVerifyMFA(mfaFactorId, mfaCode)
-      navigate('/', { replace: true })
+      navigate(redirectUrl, { replace: true })
     } catch (err) {
       console.error(err)
       setMfaError(err.message || 'Invalid verification code. Please try again.')
@@ -199,7 +204,7 @@ export default function Login() {
         setMfaRequired(false)
         setBackupCode('')
         setUseBackupCode(false)
-        navigate('/', { replace: true })
+        navigate(redirectUrl, { replace: true })
       } else {
         setMfaError('Invalid or already used recovery code.')
       }

@@ -383,6 +383,46 @@ export default function SharedLedger() {
           </div>
         )}
 
+        {!user && (
+          <div className="shared-ledger-card animate-in" style={{ 
+            padding: 24, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: 16,
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.15)',
+            boxShadow: 'var(--shadow-md)',
+            borderRadius: 'var(--radius-lg)'
+          }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+              <Users size={16} color="var(--accent-primary)" />
+              Connect to your Accountify Account
+            </h3>
+            
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              Do you want to sync this shared ledger? Sign in or create a free Accountify account to link this ledger. Transactions logged here by the owner will automatically sync to your dashboard for easy verification and tracking.
+            </p>
+            
+            <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+              <a 
+                href={`/login?redirect=${encodeURIComponent(window.location.pathname)}`}
+                className="btn btn-primary"
+                style={{ 
+                  textDecoration: 'none', 
+                  textAlign: 'center', 
+                  fontSize: '0.8rem', 
+                  padding: '8px 16px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                Sign In / Sign Up to Connect
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="shared-ledger-footer">
           Powered by <strong>Accountify</strong> — Personal Finance Tracker

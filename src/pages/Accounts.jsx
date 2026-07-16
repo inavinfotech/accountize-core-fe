@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
@@ -287,6 +287,105 @@ export default function Accounts() {
     }
   }
 
+  const touchStartRef = useRef(null)
+  const isDraggingRef = useRef(false)
+
+  // Ignore gestures on interactive inputs/buttons/tables/modals to avoid interference
+  const shouldIgnoreGesture = (target) => {
+    if (!target) return false
+    const targetTag = target.tagName.toLowerCase()
+    return (
+      ['input', 'select', 'button', 'option', 'textarea', 'a'].includes(targetTag) ||
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('.account-actions') ||
+      target.closest('.table-wrapper') ||
+      target.closest('.modal') ||
+      target.closest('.confirm-modal') ||
+      target.closest('.modal-overlay')
+    )
+  }
+
+  const handleTouchStart = (e) => {
+    if (shouldIgnoreGesture(e.target)) return
+    const touch = e.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTouchEnd = (e) => {
+    if (!touchStartRef.current) return
+    const touch = e.changedTouches[0]
+    const deltaX = touch.clientX - touchStartRef.current.x
+    const deltaY = touch.clientY - touchStartRef.current.y
+    
+    const minDistance = 60
+    
+    // Swipe must be horizontal and exceed distance threshold
+    if (Math.abs(deltaX) > minDistance && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      const currentIndex = tabs.findIndex(t => t.key === activeTab)
+      if (deltaX < 0) {
+        // Swipe left -> Next tab
+        if (currentIndex < tabs.length - 1) {
+          setActiveTab(tabs[currentIndex + 1].key)
+        }
+      } else {
+        // Swipe right -> Previous tab
+        if (currentIndex > 0) {
+          setActiveTab(tabs[currentIndex - 1].key)
+        }
+      }
+    }
+    touchStartRef.current = null
+  }
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return // Left click only
+    if (shouldIgnoreGesture(e.target)) return
+    touchStartRef.current = { x: e.clientX, y: e.clientY }
+    isDraggingRef.current = true
+  }
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingRef.current || !touchStartRef.current) return
+    const deltaX = e.clientX - touchStartRef.current.x
+    // Prevent standard text selection when user is actively swiping/dragging tabs
+    if (Math.abs(deltaX) > 10) {
+      e.preventDefault()
+      window.getSelection()?.removeAllRanges()
+    }
+  }
+
+  const handleMouseUp = (e) => {
+    if (!isDraggingRef.current || !touchStartRef.current) return
+    const deltaX = e.clientX - touchStartRef.current.x
+    const deltaY = e.clientY - touchStartRef.current.y
+    
+    const minDistance = 60
+    
+    if (Math.abs(deltaX) > minDistance && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      const currentIndex = tabs.findIndex(t => t.key === activeTab)
+      if (deltaX < 0) {
+        // Dragged left -> Next tab
+        if (currentIndex < tabs.length - 1) {
+          setActiveTab(tabs[currentIndex + 1].key)
+        }
+      } else {
+        // Dragged right -> Previous tab
+        if (currentIndex > 0) {
+          setActiveTab(tabs[currentIndex - 1].key)
+        }
+      }
+    }
+    
+    touchStartRef.current = null
+    isDraggingRef.current = false
+  }
+
+  const handleMouseLeave = () => {
+    touchStartRef.current = null
+    isDraggingRef.current = false
+  }
+
   const tabs = [
     { key: 'receivable', label: 'Receivable', icon: ArrowUpRight, color: 'green' },
     { key: 'payable', label: 'Payable', icon: ArrowDownRight, color: 'red' },
@@ -294,7 +393,16 @@ export default function Accounts() {
   ]
 
   return (
-    <div className="animate-in">
+    <div 
+      className="animate-in"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      style={{ touchAction: 'pan-y' }}
+    >
       <div className="page-header">
         <div>
           <h2>Accounts</h2>
@@ -318,8 +426,9 @@ export default function Accounts() {
         ))}
       </div>
 
-      {/* Summary Card */}
-      <div className="card mb-24 summary-card">
+      <div key={activeTab} className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {/* Summary Card */}
+        <div className="card mb-24 summary-card">
         <div>
           <div className="stat-card-label">
             Total {activeTab === 'receivable' ? 'Owed to You' : activeTab === 'payable' ? 'You Owe' : 'Your Balance'}
@@ -648,6 +757,7 @@ export default function Accounts() {
         })}
         </div>
       )}
+      </div>
 
       {/* Add Account Modal */}
       {showAddAccount && (

@@ -2826,8 +2826,8 @@ tbody tr:last-child td {
 .notif-dropdown {
   position: absolute;
   top: 100%;
-  right: -60px;
-  margin-top: 8px;
+  right: -44px;
+  margin-top: 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);

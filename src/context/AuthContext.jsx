@@ -85,11 +85,11 @@ export function AuthProvider({ children }) {
   }
 
   // ── OAuth (Google / GitHub) ──
-  const signInWithOAuth = async (provider) => {
+  const signInWithOAuth = async (provider, options = {}) => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: options.redirectTo || window.location.origin,
       },
     })
     if (error) throw error
@@ -97,11 +97,11 @@ export function AuthProvider({ children }) {
   }
 
   // ── Magic Link ──
-  const signInWithMagicLink = async (email) => {
+  const signInWithMagicLink = async (email, options = {}) => {
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: options.emailRedirectTo || window.location.origin,
       },
     })
     if (error) throw error

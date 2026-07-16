@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink } from '../lib/db'
+import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts } from '../lib/db'
 import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -23,6 +23,7 @@ export default function Accounts() {
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [sharingAccount, setSharingAccount] = useState(null) // { accountId, token, loading, copied }
   const [sharedLinks, setSharedLinks] = useState({}) // { accountId: token }
+  const [linkedAccounts, setLinkedAccounts] = useState([])
 
   // Form state
   const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable', subtype: 'other' })
@@ -59,6 +60,15 @@ export default function Accounts() {
       if (!silent) setLoading(true)
       const data = await getAccountBalances(currentMonth)
       setAccounts(data)
+
+      // Load linked accounts
+      try {
+        const linked = await getLinkedAccounts()
+        setLinkedAccounts(linked)
+      } catch (err) {
+        console.error('Failed to load linked accounts:', err)
+      }
+
       // Load shared links for receivable accounts
       const receivables = data.filter(a => a.type === 'receivable')
       const links = {}
@@ -227,7 +237,9 @@ export default function Accounts() {
   }
 
   const { filtered, totalBalance, missingDefaults } = useMemo(() => {
-    const filteredAccs = accounts.filter(a => a.type === activeTab)
+    const filteredAccs = accounts
+      .filter(a => a.type === activeTab)
+      .sort((a, b) => b.balance - a.balance)
     const total = filteredAccs.reduce((s, a) => s + a.balance, 0)
 
     const selfAccounts = accounts.filter(a => a.type === 'self')
@@ -375,7 +387,14 @@ export default function Accounts() {
                     {getInitials(account.name)}
                   </div>
                   <div className="account-name-container">
-                    <div className="account-name">{account.name}</div>
+                    <div className="account-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {account.name}
+                      {linkedAccounts.some(la => la.receivable_account_id === account.id || la.payable_account_id === account.id) && (
+                        <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--indigo-bg)', color: 'var(--indigo)', border: '1px solid var(--indigo-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <Users size={8} /> Linked
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       {account.transactions?.length || 0} transactions
                     </div>

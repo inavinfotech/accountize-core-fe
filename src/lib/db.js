@@ -517,3 +517,73 @@ export async function getSharedLedger(token) {
   dbCache.set(cacheKey, promise)
   return promise
 }
+
+// ============ COLLABORATIVE / LINKED LEDGERS ============
+
+export async function linkSharedAccount(token, payableAccountId) {
+  clearDbCache()
+  const { data, error } = await supabase
+    .rpc('link_shared_ledger', { link_token: token, user_payable_account_id: payableAccountId })
+  if (error) throw error
+  return data
+}
+
+export async function getLinkedAccount(accountId) {
+  const cacheKey = `linked_account_${accountId}`
+  if (dbCache.has(cacheKey)) return dbCache.get(cacheKey)
+
+  const promise = (async () => {
+    const { data, error } = await supabase
+      .from('linked_accounts')
+      .select('*')
+      .or(`receivable_account_id.eq.${accountId},payable_account_id.eq.${accountId}`)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  })()
+
+  dbCache.set(cacheKey, promise)
+  return promise
+}
+
+export async function getLinkedAccounts() {
+  const { data, error } = await supabase
+    .from('linked_accounts')
+    .select('*')
+  if (error) throw error
+  return data
+}
+
+export async function verifyTransaction(transactionId) {
+  clearDbCache()
+  const { data, error } = await supabase
+    .from('transactions')
+    .update({ verification_status: 'completed' })
+    .eq('id', transactionId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function rejectTransaction(transactionId) {
+  clearDbCache()
+  const { data, error } = await supabase
+    .from('transactions')
+    .update({ verification_status: 'rejected' })
+    .eq('id', transactionId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getPendingTransactions() {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*, accounts(name, type)')
+    .eq('verification_status', 'pending')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}

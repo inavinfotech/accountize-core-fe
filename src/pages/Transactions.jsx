@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { getTransactions, getAccounts, updateTransaction, deleteTransaction } from '../lib/db'
+import { getTransactions, getAccounts, updateTransaction, deleteTransaction, verifyTransaction, rejectTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass, formatDate } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import { 
-  Search, Trash2, Edit2, Receipt, RefreshCw 
+  Search, Trash2, Edit2, Receipt, RefreshCw, Check, X
 } from 'lucide-react'
 
 export default function Transactions() {
   const { triggerRefresh } = useApp()
+  const [searchParams] = useSearchParams()
   const [transactions, setTransactions] = useState([])
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,6 +21,7 @@ export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [accountFilter, setAccountFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('all')
+  const [verificationFilter, setVerificationFilter] = useState(searchParams.get('verification') || 'all')
 
   // Edit / Delete State
   const [editingTransaction, setEditingTransaction] = useState(null)
@@ -27,6 +30,11 @@ export default function Transactions() {
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    const filter = searchParams.get('verification') || 'all'
+    setVerificationFilter(filter)
+  }, [searchParams])
 
   async function loadData() {
     try {
@@ -43,6 +51,72 @@ export default function Transactions() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleVerify(id) {
+    try {
+      await verifyTransaction(id)
+      loadData()
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to verify transaction:', err)
+    }
+  }
+
+  async function handleReject(id) {
+    try {
+      await rejectTransaction(id)
+      loadData()
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to reject transaction:', err)
+    }
+  }
+
+  const renderVerificationStatus = (txn) => {
+    if (!txn.is_shared) return null
+
+    if (txn.verification_status === 'pending') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3, width: 'fit-content' }}>
+            Pending Approval
+          </span>
+          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => handleVerify(txn.id)}
+              style={{ color: 'var(--green)', padding: '2px 6px', fontSize: '0.65rem', height: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}
+              type="button"
+            >
+              <Check size={10} /> Approve
+            </button>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => handleReject(txn.id)}
+              style={{ color: 'var(--red)', padding: '2px 6px', fontSize: '0.65rem', height: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}
+              type="button"
+            >
+              <X size={10} /> Reject
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    if (!txn.partner_verified) {
+      return (
+        <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid var(--blue-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3, width: 'fit-content', marginTop: 4 }}>
+          Awaiting Partner
+        </span>
+      )
+    }
+
+    return (
+      <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3, width: 'fit-content', marginTop: 4 }}>
+        <Check size={8} /> Sync Verified
+      </span>
+    )
   }
 
   // Get distinct months from transactions list to populate month filter dropdown
@@ -82,9 +156,19 @@ export default function Transactions() {
       // 4. Month Filter
       const matchesMonth = monthFilter === 'all' || t.month_year === monthFilter
 
-      return matchesSearch && matchesType && matchesAccount && matchesMonth
+      // 5. Verification Status Filter
+      let matchesVerification = true
+      if (verificationFilter === 'pending') {
+        matchesVerification = t.is_shared && t.verification_status === 'pending'
+      } else if (verificationFilter === 'awaiting') {
+        matchesVerification = t.is_shared && t.verification_status === 'completed' && !t.partner_verified
+      } else if (verificationFilter === 'verified') {
+        matchesVerification = !t.is_shared || (t.is_shared && t.verification_status === 'completed' && t.partner_verified)
+      }
+
+      return matchesSearch && matchesType && matchesAccount && matchesMonth && matchesVerification
     })
-  }, [transactions, searchQuery, typeFilter, accountFilter, monthFilter])
+  }, [transactions, searchQuery, typeFilter, accountFilter, monthFilter, verificationFilter])
 
   // Handle transaction edit submit
   async function handleEditSubmit(e) {
@@ -202,6 +286,21 @@ export default function Transactions() {
               ))}
             </select>
           </div>
+
+          {/* Verification Status Filter */}
+          <div className="form-group" style={{ marginBottom: 0, flex: '1 1 180px' }}>
+            <label className="form-label">Verification</label>
+            <select
+              className="form-select"
+              value={verificationFilter}
+              onChange={e => setVerificationFilter(e.target.value)}
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending My Approval</option>
+              <option value="awaiting">Awaiting Partner</option>
+              <option value="verified">Sync Verified</option>
+            </select>
+          </div>
         </div>
 
         {/* Transactions Table */}
@@ -264,6 +363,7 @@ export default function Transactions() {
                           }`} style={{ fontSize: '0.6rem' }}>
                             {acc.name || 'Unknown'}
                           </span>
+                          {renderVerificationStatus(txn)}
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: '0.75rem', fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={txn.description}>
                           {txn.description || <span style={{ color: 'var(--text-muted)' }}>-</span>}

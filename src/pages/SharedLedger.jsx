@@ -1,18 +1,84 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { getSharedLedger } from '../lib/db'
+import { useAuth } from '../context/AuthContext'
+import { getSharedLedger, getAccounts, createAccount, linkSharedAccount, getLinkedAccount } from '../lib/db'
 import { formatCurrency, formatDate, getInitials } from '../lib/utils'
-import { ArrowDownRight, FileText, AlertTriangle } from 'lucide-react'
+import { ArrowDownRight, FileText, AlertTriangle, Users } from 'lucide-react'
 
 export default function SharedLedger() {
   const { token } = useParams()
+  const { user } = useAuth() || {}
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Collaborative linking states
+  const [linkedAccount, setLinkedAccount] = useState(null)
+  const [myAccounts, setMyAccounts] = useState([])
+  const [selectedAccount, setSelectedAccount] = useState('')
+  const [newAccountName, setNewAccountName] = useState('')
+  const [linkingMode, setLinkingMode] = useState('select')
+  const [linkingSuccess, setLinkingSuccess] = useState(false)
+  const [linkingLoading, setLinkingLoading] = useState(false)
+
   useEffect(() => {
     loadSharedLedger()
   }, [token])
+
+  useEffect(() => {
+    if (user && data?.account) {
+      checkLinkedStatus()
+      loadMyAccounts()
+    }
+  }, [user, data])
+
+  async function checkLinkedStatus() {
+    try {
+      const link = await getLinkedAccount(data.account.id)
+      if (link) {
+        setLinkedAccount(link)
+      }
+    } catch (err) {
+      console.error('Error checking linked status:', err)
+    }
+  }
+
+  async function loadMyAccounts() {
+    try {
+      const accs = await getAccounts()
+      setMyAccounts(accs.filter(a => a.type === 'payable'))
+    } catch (err) {
+      console.error('Error loading my accounts:', err)
+    }
+  }
+
+  async function handleLink(e) {
+    e.preventDefault()
+    try {
+      setLinkingLoading(true)
+      let payableAccountId = selectedAccount
+      if (linkingMode === 'new') {
+        if (!newAccountName.trim()) return
+        const newAcc = await createAccount({
+          name: newAccountName.trim(),
+          type: 'payable',
+          subtype: 'other'
+        })
+        payableAccountId = newAcc.id
+      }
+
+      if (!payableAccountId) return
+
+      await linkSharedAccount(token, payableAccountId)
+      setLinkingSuccess(true)
+      await checkLinkedStatus()
+    } catch (err) {
+      console.error('Failed to link ledger:', err)
+      alert('Failed to link shared ledger. Please try again.')
+    } finally {
+      setLinkingLoading(false)
+    }
+  }
 
   async function loadSharedLedger() {
     try {
@@ -213,6 +279,109 @@ export default function SharedLedger() {
           )}
         </div>
 
+        {/* Collaborative Connection Card for logged in users */}
+        {user && (
+          <div className="shared-ledger-card animate-in" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+              <Users size={16} color="var(--accent-primary)" />
+              Collaborative Ledger Sync
+            </h3>
+            
+            {linkedAccount ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  This shared receivable ledger is connected to one of your payable accounts. Transactions added by the owner will automatically sync to your dashboard for verification.
+                </p>
+                <div className="shared-ledger-badge" style={{ width: 'fit-content', background: 'var(--blue-bg)', color: 'var(--blue)', borderColor: 'var(--blue-border)', marginTop: 8 }}>
+                  Linked & Syncing
+                </div>
+              </div>
+            ) : linkingSuccess ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--green)', fontWeight: 600, margin: 0 }}>
+                  Ledger successfully linked!
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Existing transactions have been imported to your payable account as pending. You can verify them on the Transactions page.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleLink} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Link this shared ledger to your own payable section. Transactions logged by the owner will show up in your account and require your approval to update your balances.
+                </p>
+                
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 550 }}>
+                    <input 
+                      type="radio" 
+                      name="linkingMode" 
+                      checked={linkingMode === 'select'} 
+                      onChange={() => setLinkingMode('select')}
+                      style={{ accentColor: 'var(--accent-primary)' }}
+                    />
+                    Existing Account
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 550 }}>
+                    <input 
+                      type="radio" 
+                      name="linkingMode" 
+                      checked={linkingMode === 'new'} 
+                      onChange={() => setLinkingMode('new')}
+                      style={{ accentColor: 'var(--accent-primary)' }}
+                    />
+                    New Account
+                  </label>
+                </div>
+
+                {linkingMode === 'select' ? (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Local Payable Account</label>
+                    <select 
+                      className="form-select"
+                      value={selectedAccount}
+                      onChange={e => setSelectedAccount(e.target.value)}
+                      required
+                      style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                    >
+                      <option value="">-- Choose Account --</option>
+                      {myAccounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
+                      ))}
+                    </select>
+                    {myAccounts.length === 0 && (
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                        No payable accounts found. Select "New Account" to create one.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>New Account Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input"
+                      placeholder={`e.g. Lent by ${account.name}`}
+                      value={newAccountName}
+                      onChange={e => setNewAccountName(e.target.value)}
+                      required
+                      style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                    />
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  style={{ width: 'fit-content', padding: '6px 16px', fontSize: '0.8rem' }}
+                  disabled={linkingLoading || (linkingMode === 'select' && !selectedAccount) || (linkingMode === 'new' && !newAccountName)}
+                >
+                  {linkingLoading ? 'Linking...' : 'Establish Link & Sync'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="shared-ledger-footer">

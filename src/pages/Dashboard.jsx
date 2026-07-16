@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { getDashboardData, getSetting, createTransaction } from '../lib/db'
+import { getDashboardData, getSetting, createTransaction, getTransactions } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
 import InfoButton from '../components/InfoButton'
 import {
@@ -15,9 +16,11 @@ import {
 const PIE_COLORS = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { currentMonth, refreshKey, triggerRefresh } = useApp()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [pendingTxnCount, setPendingTxnCount] = useState(0)
   const [dailyBudget, setDailyBudget] = useState(0)
   const [prevMonth, setPrevMonth] = useState(currentMonth)
 
@@ -34,6 +37,15 @@ export default function Dashboard() {
       setData(d)
       const budget = await getSetting('target_per_day_budget', '0')
       setDailyBudget(parseFloat(budget) || 0)
+      
+      // Fetch pending transactions
+      try {
+        const txs = await getTransactions()
+        const pending = txs.filter(t => t.is_shared && t.verification_status === 'pending')
+        setPendingTxnCount(pending.length)
+      } catch (err) {
+        console.error('Failed to fetch pending transactions:', err)
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err)
     } finally {
@@ -229,6 +241,36 @@ export default function Dashboard() {
           </button>
         )}
       </div>
+
+      {/* Pending Verification Banner */}
+      {pendingTxnCount > 0 && (
+        <div className="verification-banner" style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', color: 'var(--indigo)', marginBottom: 20 }}>
+          <div className="verification-banner-icon" style={{ color: 'var(--indigo)' }}>
+            <ShieldCheck size={22} />
+          </div>
+          <div className="verification-banner-text" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', width: '100%', gap: 12 }}>
+            <div>
+              <h3 style={{ color: 'var(--indigo)', margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>Action Required</h3>
+              <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.85rem' }}>
+                You have {pendingTxnCount} collaborative transaction{pendingTxnCount > 1 ? 's' : ''} awaiting your verification.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/transactions?verification=pending')}
+              className="btn btn-primary btn-sm"
+              style={{
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-sm)'
+              }}
+            >
+              Review & Approve
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pending Settlement Banner */}
       {showSettlementWarning && (

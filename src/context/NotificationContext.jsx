@@ -54,12 +54,20 @@ export function NotificationProvider({ children }) {
 
         // Find pending transactions on our accounts that are replicas (require our approval)
         const myAccountIds = accountsData.map(a => a.id)
+        const links = linkRes.data || []
+        const myPayableAccountIds = links
+          .filter(l => myAccountIds.includes(l.payable_account_id))
+          .map(l => l.payable_account_id)
+
         const myPending = (txRes.data || []).filter(
-          t => myAccountIds.includes(t.account_id) && t.linked_transaction_id
+          t => myPayableAccountIds.includes(t.account_id) && t.linked_transaction_id
         )
 
         setNotifications(prev => {
-          const updated = [...prev]
+          const nonPending = prev.filter(n => n.type !== 'pending')
+          const pendingKeep = prev.filter(n => n.type === 'pending' && myPending.some(p => p.id === n.txId))
+          const updated = [...nonPending, ...pendingKeep]
+
           myPending.forEach(txn => {
             const exists = updated.some(n => n.txId === txn.id)
             if (!exists) {
@@ -140,6 +148,13 @@ export function NotificationProvider({ children }) {
       return acc ? acc.name : 'Unknown Account'
     }
 
+    // Helper to check if account is a payable account in linked accounts
+    const isPayable = (accId) => {
+      return linkedAccounts.some(
+        l => l.payable_account_id === accId && userAccounts.some(a => a.id === l.payable_account_id)
+      )
+    }
+
     // Subscribe to transactions changes
     const channel = supabase
       .channel('realtime-notifications')
@@ -151,10 +166,10 @@ export function NotificationProvider({ children }) {
 
           // 1. Handle INSERT (New Transaction)
           if (eventType === 'INSERT') {
-            const isOurAccount = userAccounts.some(a => a.id === newRow.account_id)
+            const isOurPayableAccount = isPayable(newRow.account_id)
             const isReplicaPending = newRow.verification_status === 'pending' && newRow.linked_transaction_id
 
-            if (isOurAccount && isReplicaPending) {
+            if (isOurPayableAccount && isReplicaPending) {
               const accountName = getAccountName(newRow.account_id)
               addNotification({
                 type: 'pending',
@@ -167,6 +182,11 @@ export function NotificationProvider({ children }) {
 
           // 2. Handle UPDATE (Approval / Edit / Re-approval)
           if (eventType === 'UPDATE') {
+            // If the transaction is no longer pending (e.g. approved/rejected), clean up its pending notification
+            if (newRow.verification_status === 'completed' || newRow.verification_status === 'rejected') {
+              setNotifications(prev => prev.filter(n => !(n.type === 'pending' && n.txId === newRow.id)))
+            }
+
             const isOurAccount = userAccounts.some(a => a.id === newRow.account_id)
             if (isOurAccount) {
               // Case A: Partner Approved our transaction (partner_verified changes false -> true on our original transaction)
@@ -180,7 +200,7 @@ export function NotificationProvider({ children }) {
                 })
               }
               // Case B: Partner edited a transaction, changing verification_status completed -> pending on our replica
-              else if (newRow.user_id === user.id && oldRow.verification_status === 'completed' && newRow.verification_status === 'pending') {
+              else if (newRow.user_id === user.id && isPayable(newRow.account_id) && oldRow.verification_status === 'completed' && newRow.verification_status === 'pending') {
                 const accountName = getAccountName(newRow.account_id)
                 addNotification({
                   type: 'pending',
@@ -194,6 +214,9 @@ export function NotificationProvider({ children }) {
 
           // 3. Handle DELETE (Rejection / Cancelation)
           if (eventType === 'DELETE') {
+            // Always remove any pending notification for the deleted transaction
+            setNotifications(prev => prev.filter(n => n.txId !== oldRow.id))
+
             const isOurAccount = userAccounts.some(a => a.id === oldRow.account_id)
             if (isOurAccount) {
               // Case C: Transaction Rejected (pending transaction got deleted)
@@ -214,7 +237,7 @@ export function NotificationProvider({ children }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, userAccounts, addNotification])
+  }, [user, userAccounts, linkedAccounts, addNotification])
 
   const unreadCount = notifications.filter(n => !n.read).length
 

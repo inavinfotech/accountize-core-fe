@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Google Fonts (Inter) loaded via non-blocking <link> in index.html */
 
 :root {
   /* Soft, Premium Light Theme Color Palette */
@@ -1139,7 +1139,7 @@ tbody tr:last-child td {
   box-shadow: var(--shadow-lg), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  transition: all var(--transition-base);
+  transition: transform var(--transition-base), opacity var(--transition-base);
 }
 
 /* ===== PROMO COLUMN STYLES (DESKTOP SPLIT) ===== */
@@ -1637,7 +1637,7 @@ tbody tr:last-child td {
   color: var(--text-primary);
   font-family: inherit;
   font-size: 0.85rem;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .auth-input:focus {
@@ -1677,7 +1677,7 @@ tbody tr:last-child td {
   font-weight: 700;
   cursor: pointer;
   box-shadow: var(--shadow-glow);
-  transition: all var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1759,7 +1759,7 @@ tbody tr:last-child td {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: all var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .auth-social-btn:hover:not(:disabled) {
@@ -1842,7 +1842,7 @@ tbody tr:last-child td {
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2812,15 +2812,15 @@ tbody tr:last-child td {
 @keyframes pulseBadge {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    opacity: 1;
   }
   70% {
     transform: scale(1.15);
-    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0);
+    opacity: 0.85;
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    opacity: 1;
   }
 }
 
@@ -3161,9 +3161,8 @@ tbody tr:last-child td {
     opacity: 1;
   }
   to {
-    transform: translateX(120%);
+    transform: translateX(120%) scaleY(0);
     opacity: 0;
-    margin-top: -60px; /* Collapse gap space */
   }
 }
 

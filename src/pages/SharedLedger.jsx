@@ -336,8 +336,9 @@ export default function SharedLedger() {
 
                 {linkingMode === 'select' ? (
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Local Payable Account</label>
+                    <label htmlFor="shared-ledger-select-account" className="form-label" style={{ fontSize: '0.75rem' }}>Select Local Payable Account</label>
                     <select 
+                      id="shared-ledger-select-account"
                       className="form-select"
                       value={selectedAccount}
                       onChange={e => setSelectedAccount(e.target.value)}
@@ -357,8 +358,9 @@ export default function SharedLedger() {
                   </div>
                 ) : (
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>New Account Name</label>
+                    <label htmlFor="shared-ledger-new-acc-name" className="form-label" style={{ fontSize: '0.75rem' }}>New Account Name</label>
                     <input 
+                      id="shared-ledger-new-acc-name"
                       type="text" 
                       className="form-input"
                       placeholder={`e.g. Lent by ${account.name}`}

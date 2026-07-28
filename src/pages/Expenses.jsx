@@ -688,8 +688,9 @@ export default function Expenses() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: 2 }}>Account</label>
+                    <label htmlFor="settle-account-select" className="form-label" style={{ fontSize: '0.75rem', marginBottom: 2 }}>Account</label>
                     <select
+                      id="settle-account-select"
                       className="form-input form-input-sm"
                       value={settleAccountId}
                       onChange={e => setSettleAccountId(e.target.value)}
@@ -701,8 +702,9 @@ export default function Expenses() {
                     </select>
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: 2 }}>Amount to Subtract (₹)</label>
+                    <label htmlFor="settle-amount-input" className="form-label" style={{ fontSize: '0.75rem', marginBottom: 2 }}>Amount to Subtract (₹)</label>
                     <input
+                      id="settle-amount-input"
                       type="number"
                       className="form-input form-input-sm"
                       value={settleAmount}

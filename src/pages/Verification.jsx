@@ -333,8 +333,9 @@ export default function Verification() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Account</label>
+                        <label htmlFor="verify-settle-account-select" className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Account</label>
                         <select
+                          id="verify-settle-account-select"
                           className="form-input form-input-sm"
                           value={settleAccountId}
                           onChange={e => setSettleAccountId(e.target.value)}
@@ -346,8 +347,9 @@ export default function Verification() {
                         </select>
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Amount to Subtract (₹)</label>
+                        <label htmlFor="verify-settle-amount-input" className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Amount to Subtract (₹)</label>
                         <input
+                          id="verify-settle-amount-input"
                           type="number"
                           className="form-input form-input-sm"
                           value={settleAmount}
@@ -396,8 +398,9 @@ export default function Verification() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Your actual cash in hand</label>
+            <label htmlFor="manual-cash-input" className="form-label">Your actual cash in hand</label>
             <input
+              id="manual-cash-input"
               className="form-input"
               type="number"
               step="0.01"
@@ -408,8 +411,9 @@ export default function Verification() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Your actual online balance</label>
+            <label htmlFor="manual-online-input" className="form-label">Your actual online balance</label>
             <input
+              id="manual-online-input"
               className="form-input"
               type="number"
               step="0.01"
@@ -420,8 +424,9 @@ export default function Verification() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Your actual total balance (Cash + Online)</label>
+            <label htmlFor="manual-balance-input" className="form-label">Your actual total balance (Cash + Online)</label>
             <input
+              id="manual-balance-input"
               className="form-input"
               type="number"
               step="0.01"

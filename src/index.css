@@ -10,8 +10,8 @@
   --bg-input: #ffffff;
 
   --text-primary: #0f172a; /* Slate 900 */
-  --text-secondary: #475569; /* Slate 600 */
-  --text-muted: #94a3b8; /* Slate 400 */
+  --text-secondary: #334155; /* Slate 700 */
+  --text-muted: #475569; /* Slate 600 (WCAG AAA 7.0:1 contrast) */
   --text-accent: #6366f1; /* Indigo 500 */
 
   --accent-primary: #6366f1;
@@ -69,6 +69,7 @@
 
 html {
   font-size: 16px;
+  scroll-behavior: smooth;
 }
 
 /* Lenis smooth scrolling support */
@@ -1253,7 +1254,7 @@ tbody tr:last-child td {
 .auth-promo-text {
   font-size: 1.1rem;
   line-height: 1.6;
-  color: #94a3b8;
+  color: #cbd5e1; /* Slate 300 (12:1 WCAG AAA contrast on dark bg) */
   max-width: 500px;
 }
 
@@ -1313,7 +1314,7 @@ tbody tr:last-child td {
   border-radius: var(--radius-sm);
   height: 20px;
   font-size: 0.65rem;
-  color: #64748b;
+  color: #94a3b8; /* Slate 400 (6:1 contrast on dark bg) */
   display: flex;
   align-items: center;
   padding: 0 10px;
@@ -1373,7 +1374,7 @@ tbody tr:last-child td {
 
 .mockup-label {
   font-size: 0.65rem;
-  color: #64748b;
+  color: #94a3b8; /* Slate 400 (6:1 contrast on dark bg) */
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1456,7 +1457,7 @@ tbody tr:last-child td {
 
 .activity-date {
   font-size: 0.6rem;
-  color: #64748b;
+  color: #94a3b8; /* Slate 400 (6:1 contrast on dark bg) */
 }
 
 .activity-amount {
@@ -3166,9 +3167,13 @@ tbody tr:last-child td {
   }
 }
 
+.toast-progress-bar {
+  transform-origin: left center;
+}
+
 @keyframes shrinkWidth {
-  from { width: 100%; }
-  to { width: 0%; }
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 
 

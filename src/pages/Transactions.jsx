@@ -230,10 +230,11 @@ export default function Transactions() {
         }}>
           {/* Search */}
           <div className="form-group" style={{ marginBottom: 0, flex: '2 1 220px' }}>
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label htmlFor="txn-search-query" className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Search size={12} /> Search
             </label>
             <input
+              id="txn-search-query"
               type="text"
               className="form-input"
               placeholder="Search description or account..."
@@ -244,8 +245,9 @@ export default function Transactions() {
 
           {/* Type Filter */}
           <div className="form-group" style={{ marginBottom: 0, flex: '1 1 140px' }}>
-            <label className="form-label">Type</label>
+            <label htmlFor="txn-type-filter" className="form-label">Type</label>
             <select
+              id="txn-type-filter"
               className="form-select"
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
@@ -258,8 +260,9 @@ export default function Transactions() {
 
           {/* Account Filter */}
           <div className="form-group" style={{ marginBottom: 0, flex: '1 1 160px' }}>
-            <label className="form-label">Account</label>
+            <label htmlFor="txn-account-filter" className="form-label">Account</label>
             <select
+              id="txn-account-filter"
               className="form-select"
               value={accountFilter}
               onChange={e => setAccountFilter(e.target.value)}
@@ -275,8 +278,9 @@ export default function Transactions() {
 
           {/* Month Filter */}
           <div className="form-group" style={{ marginBottom: 0, flex: '1 1 150px' }}>
-            <label className="form-label">Month</label>
+            <label htmlFor="txn-month-filter" className="form-label">Month</label>
             <select
+              id="txn-month-filter"
               className="form-select"
               value={monthFilter}
               onChange={e => setMonthFilter(e.target.value)}
@@ -292,8 +296,9 @@ export default function Transactions() {
 
           {/* Verification Status Filter */}
           <div className="form-group" style={{ marginBottom: 0, flex: '1 1 180px' }}>
-            <label className="form-label">Verification</label>
+            <label htmlFor="txn-verification-filter" className="form-label">Verification</label>
             <select
+              id="txn-verification-filter"
               className="form-select"
               value={verificationFilter}
               onChange={e => setVerificationFilter(e.target.value)}
@@ -426,8 +431,9 @@ export default function Transactions() {
         <Modal title="Edit Transaction" onClose={() => setEditingTransaction(null)}>
           <form onSubmit={handleEditSubmit}>
             <div className="form-group">
-              <label className="form-label">Date</label>
+              <label htmlFor="txn-edit-date" className="form-label">Date</label>
               <input
+                id="txn-edit-date"
                 className="form-input"
                 type="date"
                 value={editingTransaction.date}
@@ -436,8 +442,9 @@ export default function Transactions() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Amount (positive = credit, negative = debit)</label>
+              <label htmlFor="txn-edit-amount" className="form-label">Amount (positive = credit, negative = debit)</label>
               <input
+                id="txn-edit-amount"
                 className="form-input"
                 type="number"
                 step="0.01"
@@ -449,8 +456,9 @@ export default function Transactions() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description (optional)</label>
+              <label htmlFor="txn-edit-desc" className="form-label">Description (optional)</label>
               <input
+                id="txn-edit-desc"
                 className="form-input"
                 placeholder="e.g., Grocery shopping, refund, travel..."
                 value={editingTransaction.description}

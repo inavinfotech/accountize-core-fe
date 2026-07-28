@@ -764,8 +764,9 @@ export default function Accounts() {
         <Modal title="New Account" onClose={() => setShowAddAccount(false)}>
           <form onSubmit={handleAddAccount}>
             <div className="form-group">
-              <label className="form-label">Name</label>
+              <label htmlFor="new-acc-name" className="form-label">Name</label>
               <input
+                id="new-acc-name"
                 className="form-input"
                 placeholder="e.g., Business, pocket cash, rent..."
                 value={newAccount.name}
@@ -775,8 +776,9 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Type</label>
+              <label htmlFor="new-acc-type" className="form-label">Type</label>
               <select
+                id="new-acc-type"
                 className="form-select"
                 value={newAccount.type}
                 onChange={e => {
@@ -791,8 +793,9 @@ export default function Accounts() {
             </div>
             {newAccount.type === 'self' && (
               <div className="form-group">
-                <label className="form-label">Subtype</label>
+                <label htmlFor="new-acc-subtype" className="form-label">Subtype</label>
                 <select
+                  id="new-acc-subtype"
                   className="form-select"
                   value={newAccount.subtype || 'cash'}
                   onChange={e => setNewAccount({ ...newAccount, subtype: e.target.value })}
@@ -817,8 +820,9 @@ export default function Accounts() {
         <Modal title="Add Transaction" onClose={() => setShowAddTransaction(null)}>
           <form onSubmit={handleAddTransaction}>
             <div className="form-group">
-              <label className="form-label">Date</label>
+              <label htmlFor="new-txn-date" className="form-label">Date</label>
               <input
+                id="new-txn-date"
                 className="form-input"
                 type="date"
                 value={newTxn.date}
@@ -827,8 +831,9 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Amount (positive = credit, negative = debit)</label>
+              <label htmlFor="new-txn-amount" className="form-label">Amount (positive = credit, negative = debit)</label>
               <input
+                id="new-txn-amount"
                 className="form-input"
                 type="number"
                 step="0.01"
@@ -840,8 +845,9 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description (optional)</label>
+              <label htmlFor="new-txn-desc" className="form-label">Description (optional)</label>
               <input
+                id="new-txn-desc"
                 className="form-input"
                 placeholder="e.g., Grocery shopping, refund, travel..."
                 value={newTxn.description}
@@ -858,8 +864,9 @@ export default function Accounts() {
                 border: '1px solid var(--border-color)',
                 borderRadius: 'var(--radius-md)'
               }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem' }}>
+                <label htmlFor="sync-online-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem' }}>
                   <input
+                    id="sync-online-checkbox"
                     type="checkbox"
                     checked={syncWithOnline}
                     onChange={e => setSyncWithOnline(e.target.checked)}
@@ -871,8 +878,9 @@ export default function Accounts() {
                 {syncWithOnline && (
                   <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: 4 }}>Select Online Account</label>
+                      <label htmlFor="sync-online-account-select" className="form-label" style={{ fontSize: '0.75rem', marginBottom: 4 }}>Select Online Account</label>
                       <select
+                        id="sync-online-account-select"
                         className="form-input"
                         value={syncOnlineAccountId}
                         onChange={e => setSyncOnlineAccountId(e.target.value)}
@@ -910,8 +918,9 @@ export default function Accounts() {
         <Modal title="Edit Transaction" onClose={() => setEditingTransaction(null)}>
           <form onSubmit={handleEditTransaction}>
             <div className="form-group">
-              <label className="form-label">Date</label>
+              <label htmlFor="edit-txn-date" className="form-label">Date</label>
               <input
+                id="edit-txn-date"
                 className="form-input"
                 type="date"
                 value={editingTransaction.date}
@@ -920,8 +929,9 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Amount (positive = credit, negative = debit)</label>
+              <label htmlFor="edit-txn-amount" className="form-label">Amount (positive = credit, negative = debit)</label>
               <input
+                id="edit-txn-amount"
                 className="form-input"
                 type="number"
                 step="0.01"
@@ -933,8 +943,9 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description (optional)</label>
+              <label htmlFor="edit-txn-desc" className="form-label">Description (optional)</label>
               <input
+                id="edit-txn-desc"
                 className="form-input"
                 placeholder="e.g., Grocery shopping, refund, travel..."
                 value={editingTransaction.description}

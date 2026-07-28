@@ -456,6 +456,7 @@ export default function Login() {
                   <button
                     type="button"
                     className="auth-toggle-password"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     onClick={() => setShowPassword(prev => !prev)}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -529,6 +530,7 @@ export default function Login() {
                 <form onSubmit={handleBackupCodeVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                   <input
                     type="text"
+                    aria-label="Backup Code"
                     className="mfa-code-input"
                     value={backupCode}
                     onChange={e => {
@@ -569,6 +571,7 @@ export default function Login() {
                 <form onSubmit={handleMFAVerify} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                   <input
                     type="text"
+                    aria-label="6-Digit Verification Code"
                     className="mfa-code-input"
                     value={mfaCode}
                     onChange={e => {

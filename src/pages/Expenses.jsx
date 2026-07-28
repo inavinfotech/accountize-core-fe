@@ -8,10 +8,10 @@ import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Receipt, Calendar, TrendingDown,
   Calculator, Target, Clock, Download,
-  ArrowUpDown, Check, GripVertical
+  ArrowUpDown, Check, GripVertical, ChevronDown, ChevronUp
 } from 'lucide-react'
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, ReferenceLine, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
 export default function Expenses() {
@@ -31,6 +31,8 @@ export default function Expenses() {
   const [settleAmount, setSettleAmount] = useState('')
   const [settleAccountId, setSettleAccountId] = useState('')
   const [userEditedAmount, setUserEditedAmount] = useState(false)
+  const [dailyExpensesExpanded, setDailyExpensesExpanded] = useState(false)
+  const [spendingTrendExpanded, setSpendingTrendExpanded] = useState(false)
 
   const pendingUpdatesRef = useRef({})
   const debounceTimerRef = useRef(null)
@@ -359,13 +361,13 @@ export default function Expenses() {
       byDate[day] = (byDate[day] || 0) + e.amount
     })
 
-    // Cumulative chart
+    // Daily & Cumulative chart
     let cumulative = 0
     const chart = Object.entries(byDate)
       .sort(([a], [b]) => a - b)
       .map(([day, amount]) => {
         cumulative += amount
-        return { day: parseInt(day), daily: amount, cumulative }
+        return { day: parseInt(day), amount, daily: amount, cumulative }
       })
 
     // Group expenses by date for list display
@@ -467,57 +469,152 @@ export default function Expenses() {
         </div>
       </div>
 
-      {/* Chart + Estimate Finder */}
+      {/* Charts Row */}
       <div className="two-col-grid mb-24">
+        {/* Daily Expenses Bar Chart */}
+        <div className="card">
+          <div
+            className="card-header"
+            onClick={() => setDailyExpensesExpanded(prev => !prev)}
+            style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <div>
+              <div className="card-title">
+                Daily Expenses
+                <span onClick={e => e.stopPropagation()}>
+                  <InfoButton metricId="dailyExpenses" contextValues={{ totalExpenses: totalSpend, expenses }} />
+                </span>
+              </div>
+              <div className="card-subtitle">Spending per calendar day</div>
+            </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDailyExpensesExpanded(prev => !prev)
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)' }}
+            >
+              <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{dailyExpensesExpanded ? 'Collapse' : 'Expand'}</span>
+              {dailyExpensesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+          {dailyExpensesExpanded && (
+            chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260} minWidth={0}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="day" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1a1f36',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 8,
+                      color: '#f1f5f9',
+                      fontSize: 13
+                    }}
+                    formatter={(value) => [formatCurrency(value), 'Spent']}
+                  />
+                  <Bar dataKey="amount" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                  {customEstimatePerDay > 0 && (
+                    <ReferenceLine
+                      y={customEstimatePerDay}
+                      stroke="#ef4444"
+                      strokeDasharray="6 4"
+                      strokeWidth={2}
+                      label={{
+                        value: `Budget ₹${customEstimatePerDay}`,
+                        position: 'right',
+                        fill: '#ef4444',
+                        fontSize: 10,
+                        fontWeight: 600
+                      }}
+                    />
+                  )}
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#7c3aed" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state">
+                <p>No expense data for this month yet</p>
+              </div>
+            )
+          )}
+        </div>
+
         {/* Cumulative Spending Chart */}
         <div className="card">
-          <div className="card-header">
+          <div
+            className="card-header"
+            onClick={() => setSpendingTrendExpanded(prev => !prev)}
+            style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
             <div>
               <div className="card-title">Spending Trend</div>
               <div className="card-subtitle">Cumulative daily spending</div>
             </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                setSpendingTrendExpanded(prev => !prev)
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)' }}
+            >
+              <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{spendingTrendExpanded ? 'Collapse' : 'Expand'}</span>
+              {spendingTrendExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
           </div>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="day" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: '#1a1f36',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    color: '#f1f5f9',
-                    fontSize: 13
-                  }}
-                  formatter={(value, name) => [
-                    formatCurrency(value),
-                    name === 'cumulative' ? 'Total' : 'Daily'
-                  ]}
-                />
-                <Area type="monotone" dataKey="cumulative" stroke="#ef4444" fillOpacity={1} fill="url(#areaGradient)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="empty-state"><p>No expense data yet</p></div>
+          {spendingTrendExpanded && (
+            chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260} minWidth={0}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="day" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1a1f36',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 8,
+                      color: '#f1f5f9',
+                      fontSize: 13
+                    }}
+                    formatter={(value, name) => [
+                      formatCurrency(value),
+                      name === 'cumulative' ? 'Total' : 'Daily'
+                    ]}
+                  />
+                  <Area type="monotone" dataKey="cumulative" stroke="#ef4444" fillOpacity={1} fill="url(#areaGradient)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state"><p>No expense data yet</p></div>
+            )
           )}
         </div>
+      </div>
 
-        {/* Estimate Finder (matches Excel K45-K48 section) */}
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Estimate Finder</div>
-              <div className="card-subtitle">Custom budget estimation like your Excel</div>
-            </div>
+      {/* Estimate Finder (matches Excel K45-K48 section) */}
+      <div className="card mb-24">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Estimate Finder</div>
+            <div className="card-subtitle">Custom budget estimation like your Excel</div>
           </div>
+        </div>
           <BudgetInput
             value={estimatePerDay}
             customEstimatePerDay={customEstimatePerDay}
@@ -636,7 +733,6 @@ export default function Expenses() {
             </div>
           )}
         </div>
-      </div>
 
       {/* Expenses Grid Table */}
       <div className="card">

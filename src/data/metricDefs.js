@@ -102,6 +102,19 @@ export const METRIC_DEFS = {
       return `Total logged expenses this month: ${formatCurrency(data.totalExpenses)} across ${data.expenses?.length || 0} entries`
     }
   },
+  spendingTrend: {
+    title: 'Spending Trend Chart',
+    description: 'Cumulative daily spending progression over the calendar days of the active month.',
+    excelFormula: '= CUMSUM(Daily Expenses)',
+    formula: 'Cumulative Spending = Running cumulative sum of daily expenses up to each day',
+    variables: [
+      { name: 'Daily Expenses', desc: 'Expenses recorded on each calendar day' },
+      { name: 'Cumulative Total', desc: 'Running total of all expenses from the start of the month up to that day' }
+    ],
+    getLiveCalculation: (data) => {
+      return `Total cumulative spend this month: ${formatCurrency(data.totalExpenses)} across ${data.expenses?.length || 0} entries`
+    }
+  },
   receivablesBreakdown: {
     title: 'Receivables Breakdown',
     description: 'The proportional breakdown of who owes you what percentage of your total receivables.',

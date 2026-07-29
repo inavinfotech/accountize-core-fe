@@ -556,7 +556,12 @@ export default function Expenses() {
             style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
           >
             <div>
-              <div className="card-title">Spending Trend</div>
+              <div className="card-title">
+                Spending Trend
+                <span onClick={e => e.stopPropagation()}>
+                  <InfoButton metricId="spendingTrend" contextValues={{ totalExpenses: totalSpend, expenses }} />
+                </span>
+              </div>
               <div className="card-subtitle">Cumulative daily spending</div>
             </div>
             <button

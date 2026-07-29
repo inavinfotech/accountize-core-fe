@@ -253,39 +253,17 @@ export default function Accounts() {
     }
   }
 
-  const { filtered, totalBalance, missingDefaults } = useMemo(() => {
+  const { filtered, totalBalance } = useMemo(() => {
     const filteredAccs = accounts
       .filter(a => a.type === activeTab)
       .sort((a, b) => b.balance - a.balance)
     const total = filteredAccs.reduce((s, a) => s + a.balance, 0)
 
-    const selfAccounts = accounts.filter(a => a.type === 'self')
-    const hasCash = selfAccounts.some(a => a.subtype === 'cash')
-    const hasExpense = selfAccounts.some(a => a.subtype === 'expense')
-    const hasOnline = selfAccounts.some(a => a.subtype === 'online')
-
-    const defaults = []
-    if (!hasCash) defaults.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
-    if (!hasOnline) defaults.push({ name: 'Online Money', type: 'self', subtype: 'online' })
-    if (!hasExpense) defaults.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
-
     return {
       filtered: filteredAccs,
-      totalBalance: total,
-      missingDefaults: defaults
+      totalBalance: total
     }
   }, [accounts, activeTab])
-
-  async function handleCreateDefaults() {
-    try {
-      for (const item of missingDefaults) {
-        await createAccount(item)
-      }
-      triggerRefresh()
-    } catch (err) {
-      console.error('Failed to create default accounts:', err)
-    }
-  }
 
   const touchStartRef = useRef(null)
   const isDraggingRef = useRef(false)
@@ -443,38 +421,7 @@ export default function Accounts() {
         </div>
       </div>
 
-      {/* Default Accounts Setup banner */}
-      {!loading && missingDefaults.length > 0 && (
-        <div className="card mb-24" style={{
-          background: 'rgba(245, 158, 11, 0.08)',
-          border: '1px dashed var(--amber)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 16,
-          padding: '16px 20px',
-          borderRadius: 'var(--radius-lg)'
-        }}>
-          <div>
-            <h4 style={{ color: 'var(--amber)', fontWeight: 600, marginBottom: 4, fontSize: '0.95rem' }}>Default Accounts Setup</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Set up default accounts to enable automated cash, online, and expense tracking (missing: {missingDefaults.map(d => d.name).join(', ')}).
-            </p>
-          </div>
-          <button
-            className="btn btn-sm"
-            onClick={handleCreateDefaults}
-            style={{
-              background: 'var(--amber)',
-              color: 'var(--bg-primary)',
-              fontWeight: 600,
-              flexShrink: 0
-            }}
-          >
-            Create Missing
-          </button>
-        </div>
-      )}
+
 
       {/* Account List */}
       {loading ? (

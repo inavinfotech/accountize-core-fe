@@ -248,7 +248,38 @@ export async function upsertMonthlySummary(summary) {
 
 // ============ COMPUTED HELPERS ============
 
+export async function ensureDefaultAccounts() {
+  try {
+    const { data: accounts, error } = await supabase
+      .from('accounts')
+      .select('id, name, type, subtype')
+    if (error) throw error
+
+    const selfAccounts = (accounts || []).filter(a => a.type === 'self')
+    const hasCash = selfAccounts.some(a => a.subtype === 'cash')
+    const hasOnline = selfAccounts.some(a => a.subtype === 'online')
+    const hasExpense = selfAccounts.some(a => a.subtype === 'expense' || (a.name && a.name.toLowerCase().includes('expen')))
+
+    const missing = []
+    if (!hasCash) missing.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
+    if (!hasOnline) missing.push({ name: 'Online Money', type: 'self', subtype: 'online' })
+    if (!hasExpense) missing.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
+
+    if (missing.length > 0) {
+      for (const item of missing) {
+        await supabase.from('accounts').insert(item)
+      }
+      clearDbCache()
+      return true
+    }
+  } catch (err) {
+    console.error('Failed to auto-ensure default accounts:', err)
+  }
+  return false
+}
+
 export async function getAccountBalances(monthYear) {
+  await ensureDefaultAccounts()
   const cacheKey = `balances_${monthYear}`
   if (dbCache.has(cacheKey)) return dbCache.get(cacheKey)
 
@@ -331,6 +362,15 @@ export async function getDashboardData(monthYear) {
     const finalOnlineBalance = rawOnlineBalance + expenseAllotted - (totalExpenses - settledExpenses)
     const selfTotal = cashBalance + finalOnlineBalance + bankBalance
     
+    const hasCash = selfAccounts.some(a => a.subtype === 'cash')
+    const hasOnline = selfAccounts.some(a => a.subtype === 'online')
+    const hasExpense = selfAccounts.some(a => a.subtype === 'expense' || (a.name && a.name.toLowerCase().includes('expen')))
+
+    const missingDefaults = []
+    if (!hasCash) missingDefaults.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
+    if (!hasOnline) missingDefaults.push({ name: 'Online Money', type: 'self', subtype: 'online' })
+    if (!hasExpense) missingDefaults.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
+
     const totalAssets = totalReceivables + selfTotal
     const availableBalance = totalAssets - totalPayables
     
@@ -355,6 +395,7 @@ export async function getDashboardData(monthYear) {
       daysTracked,
       perDayAvg,
       summary,
+      missingDefaults,
     }
   })()
 

@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { getDashboardData, createTransaction, getTransactions } from '../lib/db'
+import { getDashboardData, createTransaction, getTransactions, createAccount } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
 import InfoButton from '../components/InfoButton'
+import Modal from '../components/Modal'
 import {
   Wallet, TrendingUp, TrendingDown, Banknote, CreditCard,
   ShieldCheck, ShieldAlert, ArrowUpRight, ArrowDownRight, PiggyBank, Download
@@ -21,6 +22,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [pendingTxnCount, setPendingTxnCount] = useState(0)
   const [prevMonth, setPrevMonth] = useState(currentMonth)
+  const [showDefaultModal, setShowDefaultModal] = useState(false)
+  const [creatingDefaults, setCreatingDefaults] = useState(false)
 
   useEffect(() => {
     const isMonthChange = currentMonth !== prevMonth
@@ -33,6 +36,11 @@ export default function Dashboard() {
       if (!silent) setLoading(true)
       const d = await getDashboardData(currentMonth)
       setData(d)
+      if (d?.missingDefaults && d.missingDefaults.length > 0) {
+        setShowDefaultModal(true)
+      } else {
+        setShowDefaultModal(false)
+      }
       
       // Fetch pending transactions
       try {
@@ -46,6 +54,22 @@ export default function Dashboard() {
       console.error('Failed to load dashboard:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleCreateMissingDefaults() {
+    if (!data?.missingDefaults || data.missingDefaults.length === 0) return
+    try {
+      setCreatingDefaults(true)
+      for (const item of data.missingDefaults) {
+        await createAccount(item)
+      }
+      setShowDefaultModal(false)
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to create default accounts from dashboard:', err)
+    } finally {
+      setCreatingDefaults(false)
     }
   }
 
@@ -539,6 +563,52 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {showDefaultModal && data?.missingDefaults?.length > 0 && (
+        <Modal title="Default Accounts Setup" onClose={() => setShowDefaultModal(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontSize: '0.9rem' }}>
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid var(--amber)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 14px',
+              color: 'var(--amber)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10
+            }}>
+              <ShieldAlert size={20} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <strong style={{ display: 'block', marginBottom: 2 }}>Action Required</strong>
+                The following default accounts could not be automatically set up: 
+                <span style={{ fontWeight: 600, marginLeft: 4 }}>
+                  {data.missingDefaults.map(d => d.name).join(', ')}
+                </span>.
+              </div>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Default accounts are required for cash management, online balance calculations, and expense tracking.
+            </p>
+            <div className="modal-actions" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowDefaultModal(false)}
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleCreateMissingDefaults}
+                disabled={creatingDefaults}
+              >
+                {creatingDefaults ? 'Creating...' : 'Create Missing Accounts'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

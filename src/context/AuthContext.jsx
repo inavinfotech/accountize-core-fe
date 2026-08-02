@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { analytics } from '../lib/analytics'
 
 const AuthContext = createContext(null)
 
@@ -70,12 +71,16 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  const signUp = async (email, password) => {
+  const signUp = async (email, password, options = {}) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: options.emailRedirectTo || `${window.location.origin}/`,
+      },
     })
     if (error) throw error
+    analytics.signUpCompleted(email, 'email')
     return data
   }
 
@@ -89,7 +94,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: options.redirectTo || window.location.origin,
+        redirectTo: options.redirectTo || `${window.location.origin}/`,
       },
     })
     if (error) throw error
@@ -101,7 +106,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: options.emailRedirectTo || window.location.origin,
+        emailRedirectTo: options.emailRedirectTo || `${window.location.origin}/`,
       },
     })
     if (error) throw error
@@ -179,7 +184,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { analytics } from './analytics'
 
 let activeMonthsCache = null
 
@@ -37,6 +38,9 @@ export async function createAccount(account) {
     .select()
     .single()
   if (error) throw error
+  if (data) {
+    analytics.accountCreated(data.type, data.subtype)
+  }
   return data
 }
 
@@ -52,7 +56,23 @@ export async function updateAccount(id, updates) {
   return data
 }
 
+export function isDefaultAccount(account) {
+  if (!account) return false
+  if (account.type !== 'self') return false
+  const nameLower = (account.name || '').trim().toLowerCase()
+  return (
+    nameLower === 'cash in hand' ||
+    nameLower === 'online money' ||
+    nameLower === 'expence money' ||
+    nameLower === 'expense money'
+  )
+}
+
 export async function deleteAccount(id) {
+  const { data: acc } = await supabase.from('accounts').select('id, name, type, subtype').eq('id', id).maybeSingle()
+  if (acc && isDefaultAccount(acc)) {
+    throw new Error(`Default system account "${acc.name}" cannot be deleted as it is required for automated balance tracking.`)
+  }
   clearDbCache()
   const { error } = await supabase
     .from('accounts')
@@ -72,6 +92,7 @@ export async function getTransactions(monthYear) {
       .from('transactions')
       .select('*, accounts(name, type)')
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
     
     if (monthYear) {
       query = query.eq('month_year', monthYear)
@@ -237,9 +258,18 @@ export async function getMonthlySummary(monthYear) {
 
 export async function upsertMonthlySummary(summary) {
   clearDbCache()
+  const { data: { user } } = await supabase.auth.getUser()
+  const existing = await getMonthlySummary(summary.month_year).catch(() => null)
+
+  const payload = {
+    ...summary,
+    ...(user?.id ? { user_id: user.id } : {}),
+    ...(existing?.id ? { id: existing.id } : {})
+  }
+
   const { data, error } = await supabase
     .from('monthly_summaries')
-    .upsert(summary, { onConflict: 'month_year' })
+    .upsert(payload, { onConflict: 'user_id,month_year' })
     .select()
     .single()
   if (error) throw error
@@ -292,9 +322,16 @@ export async function getAccountBalances(monthYear) {
     // Get current month transactions
     const currentTransactions = await getTransactions(monthYear)
     
-    // Map current transactions to each account
+    // Map current transactions to each account (sorted newest first)
     const balances = accounts.map(account => {
-      const currentTxns = currentTransactions.filter(t => t.account_id === account.id)
+      const currentTxns = currentTransactions
+        .filter(t => t.account_id === account.id)
+        .sort((a, b) => {
+          const timeA = new Date(a.created_at).getTime()
+          const timeB = new Date(b.created_at).getTime()
+          if (timeB !== timeA) return timeB - timeA
+          return (b.id || '').localeCompare(a.id || '')
+        })
       return {
         ...account,
         transactions: currentTxns
@@ -523,6 +560,9 @@ export async function createSharedLink(accountId) {
     .select()
     .single()
   if (error) throw error
+  if (data) {
+    analytics.sharedLedgerCreated('receivable', data.id)
+  }
   return data
 }
 
@@ -566,6 +606,9 @@ export async function linkSharedAccount(token, payableAccountId) {
   const { data, error } = await supabase
     .rpc('link_shared_ledger', { link_token: token, user_payable_account_id: payableAccountId })
   if (error) throw error
+  if (data?.link_id) {
+    analytics.sharedLedgerLinked(data.link_id)
+  }
   return data
 }
 

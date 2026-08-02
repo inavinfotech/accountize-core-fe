@@ -67,7 +67,9 @@ export default function Login() {
     setSocialLoading(provider)
     setError('')
     try {
-      const redirectOption = redirectUrl !== '/' ? { redirectTo: `${window.location.origin}${redirectUrl}` } : {}
+      const redirectOption = redirectUrl && redirectUrl !== '/' 
+        ? { redirectTo: `${window.location.origin}${redirectUrl}` } 
+        : { redirectTo: `${window.location.origin}/` }
       await signInWithOAuth(provider, redirectOption)
     } catch (err) {
       console.error(err)
@@ -94,7 +96,9 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const redirectOption = redirectUrl !== '/' ? { emailRedirectTo: `${window.location.origin}${redirectUrl}` } : {}
+      const redirectOption = redirectUrl && redirectUrl !== '/' 
+        ? { emailRedirectTo: `${window.location.origin}${redirectUrl}` } 
+        : { emailRedirectTo: `${window.location.origin}/` }
       await signInWithMagicLink(email, redirectOption)
       setSuccessMsg('Magic link sent! Check your email inbox and click the link to sign in.')
     } catch (err) {

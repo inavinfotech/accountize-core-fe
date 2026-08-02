@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting, updateExpense, getAccountBalances, createTransaction, deleteTransaction } from '../lib/db'
 import { formatCurrency, formatDate, getDaysInMonth, exportToCSV } from '../lib/utils'
+import { ExpensesSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import InfoButton from '../components/InfoButton'
@@ -411,6 +412,10 @@ export default function Expenses() {
       setSettleAccountId(expenseAccounts[0].id)
     }
   }, [expenseAccounts, settleAccountId])
+
+  if (loading) {
+    return <ExpensesSkeleton />
+  }
 
   return (
     <div className="animate-in">

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getDashboardData, createTransaction, getTransactions, createAccount } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
+import { analytics } from '../lib/analytics'
+import { DashboardSkeleton } from '../components/Skeletons'
 import InfoButton from '../components/InfoButton'
 import Modal from '../components/Modal'
 import {
@@ -202,26 +204,11 @@ export default function Dashboard() {
     })
     
     exportToCSV(`monthly_summary_${currentMonth}.csv`, headers, rows)
+    analytics.statementExported('csv', currentMonth)
   }
 
   if (loading) {
-    return (
-      <div className="animate-in">
-        <div className="page-header">
-          <h2>Dashboard</h2>
-          <p>Financial overview for the month</p>
-        </div>
-        <div className="stats-grid">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="stat-card">
-              <div className="skeleton" style={{ width: 40, height: 40, marginBottom: 14 }} />
-              <div className="skeleton" style={{ width: 80, height: 12, marginBottom: 8 }} />
-              <div className="skeleton" style={{ width: 120, height: 28 }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   if (!data) return null

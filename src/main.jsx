@@ -4,8 +4,28 @@ import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.jsx'
 
+import { logError, trackEvent } from './lib/analytics'
+
 // Register PWA Service Worker with auto-update
 registerSW({ immediate: true })
+
+// Global error handlers for uncaught JS errors and unhandled promise rejections
+window.onerror = (message, source, lineno, colno, error) => {
+  const stack = error?.stack || `at ${source}:${lineno}:${colno}`
+  logError(`[Window Error] ${message}`, stack, window.location.href)
+}
+
+window.onunhandledrejection = (event) => {
+  const reason = event.reason
+  const msg = reason?.message || String(reason || 'Unhandled Promise Rejection')
+  const stack = reason?.stack || ''
+  logError(`[Unhandled Rejection] ${msg}`, stack, window.location.href)
+}
+
+// Track PWA install event
+window.addEventListener('appinstalled', () => {
+  trackEvent('pwa_installed', { platform: navigator.userAgent })
+})
 
 // Handle chunk load failures gracefully on server updates
 window.addEventListener('vite:preloadError', () => {

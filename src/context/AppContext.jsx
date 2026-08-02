@@ -45,6 +45,14 @@ export function AppProvider({ children }) {
 
 export function useApp() {
   const ctx = useContext(AppContext)
-  if (!ctx) throw new Error('useApp must be used within AppProvider')
+  if (!ctx) {
+    return {
+      currentMonth: getCurrentMonth(),
+      setCurrentMonth: () => {},
+      refreshKey: 0,
+      triggerRefresh: () => {},
+      monthOptions: getMonthOptions()
+    }
+  }
   return ctx
 }

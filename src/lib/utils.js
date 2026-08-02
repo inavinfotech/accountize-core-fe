@@ -23,6 +23,37 @@ export function formatDate(dateStr) {
   return `${day}/${month}/${year}`
 }
 
+export function formatTransactionCreatedAt(dateStr, existingCreatedAt) {
+  if (!dateStr) return new Date().toISOString()
+  const today = new Date()
+
+  let h = today.getHours()
+  let m = today.getMinutes()
+  let s = today.getSeconds()
+  let ms = today.getMilliseconds()
+
+  if (existingCreatedAt) {
+    const existing = new Date(existingCreatedAt)
+    if (!isNaN(existing.getTime())) {
+      h = existing.getHours()
+      m = existing.getMinutes()
+      s = existing.getSeconds()
+      ms = existing.getMilliseconds()
+    }
+  }
+
+  if (typeof dateStr === 'string') {
+    const parts = dateStr.split('-').map(Number)
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      const [year, month, day] = parts
+      const d = new Date(year, month - 1, day, h, m, s, ms)
+      return d.toISOString()
+    }
+  }
+
+  return new Date(dateStr).toISOString()
+}
+
 export function formatFullDate(dateStr) {
   return formatDate(dateStr)
 }
@@ -95,3 +126,32 @@ export function exportToCSV(filename, headers, rows) {
   link.click()
   document.body.removeChild(link)
 }
+
+/**
+ * Safely evaluates user math input (e.g. "200+150+50") and triggers math_split_used analytics event
+ */
+export function parseMathExpression(inputVal, analyticsRef) {
+  if (inputVal === null || inputVal === undefined) return 0
+  const str = String(inputVal).trim()
+  if (!str) return 0
+
+  // Check if string contains math operators (+, -, *, /)
+  const hasOperators = /[+\-*/]/.test(str)
+
+  try {
+    const cleaned = str.replace(/[^0-9+\-*/.]/g, '')
+    if (!cleaned) return 0
+    // eslint-disable-next-line no-eval
+    const result = Function(`"use strict"; return (${cleaned})`)()
+    if (typeof result === 'number' && !isNaN(result)) {
+      if (hasOperators && analyticsRef?.mathSplitUsed) {
+        analyticsRef.mathSplitUsed(str, result)
+      }
+      return result
+    }
+  } catch {
+    // Return numeric fallback on parse error
+  }
+  return parseFloat(str) || 0
+}
+

@@ -851,10 +851,38 @@ tbody tr:last-child td {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, var(--border-color) 25%, var(--bg-elevated, #f1f5f9) 50%, var(--border-color) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-sm);
+}
+
+.skeleton-circle {
+  border-radius: 50% !important;
+}
+
+.skeleton-pill {
+  border-radius: 9999px !important;
+}
+
+.skeleton-text {
+  height: 12px;
+  border-radius: 4px;
+}
+
+.skeleton-title {
+  height: 22px;
+  border-radius: 6px;
+}
+
+.skeleton-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 14px);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 @keyframes shimmer {

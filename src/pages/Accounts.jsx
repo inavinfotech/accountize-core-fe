@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction } from '../lib/db'
-import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV } from '../lib/utils'
+import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction, isDefaultAccount } from '../lib/db'
+import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV, formatTransactionCreatedAt } from '../lib/utils'
+import { AccountsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Users, ArrowUpRight, ArrowDownRight, 
   UserPlus, Wallet, ChevronDown, ChevronUp, Receipt, Download,
-  Share2, LinkIcon, Link2Off, Check, Copy, X
+  Share2, LinkIcon, Link2Off, Check, Copy, X, Lock
 } from 'lucide-react'
 
 export default function Accounts() {
@@ -138,7 +139,7 @@ export default function Accounts() {
         amount: amountVal,
         description: newTxn.description,
         month_year: currentMonth,
-        created_at: newTxn.date ? new Date(newTxn.date).toISOString() : undefined
+        created_at: formatTransactionCreatedAt(newTxn.date)
       })
 
       if (syncWithOnline && selectedAccount && syncOnlineAccountId) {
@@ -153,7 +154,7 @@ export default function Accounts() {
           amount: onlineAmount,
           description: onlineDesc,
           month_year: currentMonth,
-          created_at: newTxn.date ? new Date(newTxn.date).toISOString() : undefined
+          created_at: formatTransactionCreatedAt(newTxn.date)
         })
       }
 
@@ -174,7 +175,7 @@ export default function Accounts() {
       await updateTransaction(editingTransaction.id, {
         amount: parseFloat(editingTransaction.amount),
         description: editingTransaction.description,
-        created_at: editingTransaction.date ? new Date(editingTransaction.date).toISOString() : undefined
+        created_at: formatTransactionCreatedAt(editingTransaction.date)
       })
       setEditingTransaction(null)
       triggerRefresh()
@@ -370,6 +371,10 @@ export default function Accounts() {
     { key: 'self', label: 'Self (Cash/Online)', icon: Wallet, color: 'blue' },
   ]
 
+  if (loading) {
+    return <AccountsSkeleton />
+  }
+
   return (
     <div 
       className="animate-in"
@@ -467,6 +472,11 @@ export default function Accounts() {
                         {isLinked && (
                           <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--indigo-bg)', color: 'var(--indigo)', border: '1px solid var(--indigo-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                             <Users size={8} /> Linked
+                          </span>
+                        )}
+                        {isDefaultAccount(account) && (
+                          <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'rgba(245, 158, 11, 0.1)', color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <Lock size={8} /> Default
                           </span>
                         )}
                       </div>
@@ -685,17 +695,19 @@ export default function Accounts() {
                          )}
                        </>
                      )}
-                     <button
-                       className="btn btn-danger btn-sm btn-mobile-icon"
-                       onClick={() => setDeleteConfirm({
-                         type: 'account',
-                         id: account.id,
-                         label: account.name
-                       })}
-                       title="Delete"
-                     >
-                       <Trash2 size={14} /> <span className="btn-text">Delete</span>
-                     </button>
+                     {!isDefaultAccount(account) && (
+                        <button
+                          className="btn btn-danger btn-sm btn-mobile-icon"
+                          onClick={() => setDeleteConfirm({
+                            type: 'account',
+                            id: account.id,
+                            label: account.name
+                          })}
+                          title="Delete Account"
+                        >
+                          <Trash2 size={14} /> <span className="btn-text">Delete</span>
+                        </button>
+                      )}
                    </div>
                 </div>
               )}

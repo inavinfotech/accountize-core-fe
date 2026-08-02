@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { getDashboardData, upsertMonthlySummary, createTransaction, deleteTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass } from '../lib/utils'
+import { VerificationSkeleton } from '../components/Skeletons'
 import InfoButton from '../components/InfoButton'
 import {
   ShieldCheck, ShieldAlert, Save, AlertTriangle,
@@ -162,15 +163,7 @@ export default function Verification() {
   }
 
   if (loading) {
-    return (
-      <div className="animate-in">
-        <div className="page-header">
-          <h2>Verification</h2>
-          <p>Cross-check your accounts</p>
-        </div>
-        <div className="card"><div className="skeleton" style={{ height: 300 }} /></div>
-      </div>
-    )
+    return <VerificationSkeleton />
   }
 
   if (!data) return null

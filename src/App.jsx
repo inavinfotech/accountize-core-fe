@@ -6,6 +6,8 @@ import { NotificationProvider } from './context/NotificationContext'
 import TopRightMenu from './components/TopRightMenu'
 import NotificationBell from './components/NotificationBell'
 import ToastContainer from './components/ToastContainer'
+import OnboardingWizard from './components/OnboardingWizard'
+import { analytics } from './lib/analytics'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Accounts = lazy(() => import('./pages/Accounts'))
@@ -207,6 +209,7 @@ function AppLayout() {
 
       {/* Mobile-only bottom nav */}
       <BottomNav />
+      <OnboardingWizard />
     </div>
   )
 }
@@ -216,6 +219,7 @@ function ScrollToTop() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+    analytics.pageViewed(pathname, document.title)
   }, [pathname])
 
   return null

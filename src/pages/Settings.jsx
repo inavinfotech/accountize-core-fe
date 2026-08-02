@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { logError, analytics } from '../lib/analytics'
 import {
   Shield, ShieldCheck, ShieldAlert, Smartphone, Copy, Check,
-  Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock, LogOut
+  Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock, LogOut,
+  HelpCircle, FileText, Lock, Send, MessageSquare
 } from 'lucide-react'
+import { SettingsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -31,6 +34,15 @@ export default function Settings() {
 
   // Unenroll confirm
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+
+  // Legal & Support modals state
+  const [showSupportModal, setShowSupportModal] = useState(false)
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
+  const [supportSubject, setSupportSubject] = useState('')
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportLoading, setSupportLoading] = useState(false)
+  const [supportSent, setSupportSent] = useState(false)
 
   useEffect(() => {
     loadFactors()
@@ -130,6 +142,7 @@ export default function Settings() {
       setBackupCodes(codes)
       setShowBackupCodes(true)
       setVerifyCode('')
+      analytics.mfaEnabled()
       await loadFactors()
     } catch (err) {
       console.error('Verify error:', err)
@@ -186,6 +199,27 @@ export default function Settings() {
     }
   }, [verifyCode])
 
+  const handleSendSupport = async (e) => {
+    e.preventDefault()
+    if (!supportSubject.trim() || !supportMessage.trim()) return
+    setSupportLoading(true)
+    try {
+      await logError(`[Support Ticket] ${supportSubject}`, supportMessage, window.location.href)
+      analytics.supportTicketSubmitted(supportSubject)
+      setSupportSent(true)
+      setTimeout(() => {
+        setShowSupportModal(false)
+        setSupportSent(false)
+        setSupportSubject('')
+        setSupportMessage('')
+      }, 2000)
+    } catch (err) {
+      console.error('Failed to submit support ticket:', err)
+    } finally {
+      setSupportLoading(false)
+    }
+  }
+
   const loginProvider = user?.app_metadata?.provider || 'email'
   const lastSignIn = user?.last_sign_in_at
     ? new Date(user.last_sign_in_at).toLocaleString('en-IN', {
@@ -193,6 +227,10 @@ export default function Settings() {
         timeStyle: 'short',
       })
     : 'Unknown'
+
+  if (loading) {
+    return <SettingsSkeleton />
+  }
 
   return (
     <div className="animate-in">
@@ -492,6 +530,156 @@ export default function Settings() {
               </form>
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* Legal & Support Section */}
+      <div className="security-section" style={{ marginTop: 24 }}>
+        <div className="card">
+          <div className="security-section-header">
+            <div className="security-section-icon blue" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
+              <HelpCircle size={20} />
+            </div>
+            <div>
+              <div className="security-section-title">Support &amp; Legal</div>
+              <div className="security-section-desc">Get assistance or view legal policies and terms</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16 }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowSupportModal(true)}
+            >
+              <MessageSquare size={16} /> Contact Support
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowPrivacyModal(true)}
+            >
+              <Lock size={16} /> Privacy Policy
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowTermsModal(true)}
+            >
+              <FileText size={16} /> Terms of Service
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Support Modal */}
+      {showSupportModal && (
+        <Modal
+          title="Contact Support"
+          onClose={() => setShowSupportModal(false)}
+        >
+          {supportSent ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <CheckCircle2 size={48} color="var(--green)" style={{ margin: '0 auto 16px' }} />
+              <h3>Message Sent!</h3>
+              <p style={{ color: 'var(--text-secondary)', marginTop: 8 }}>
+                Our support team has received your ticket and will investigate shortly.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSendSupport} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label className="form-label">Subject</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., Question about Shared Ledgers"
+                  value={supportSubject}
+                  onChange={e => setSupportSubject(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">Message / Details</label>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  placeholder="Describe your issue or question..."
+                  value={supportMessage}
+                  onChange={e => setSupportMessage(e.target.value)}
+                  required
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowSupportModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={supportLoading || !supportSubject.trim() || !supportMessage.trim()}
+                >
+                  {supportLoading ? (
+                    <div className="loading-spinner" style={{ width: 14, height: 14 }} />
+                  ) : (
+                    <><Send size={14} /> Send Message</>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </Modal>
+      )}
+
+      {/* Privacy Policy Modal */}
+      {showPrivacyModal && (
+        <Modal
+          title="Privacy Policy"
+          onClose={() => setShowPrivacyModal(false)}
+        >
+          <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8, display: 'flex', flexDirection: 'column', gap: 14, fontSize: '0.875rem', lineHeight: '1.6' }}>
+            <p><strong>Effective Date:</strong> August 2026</p>
+            <p>At <strong>Accountify</strong> (by iNexarum), we prioritize your financial data privacy above all else.</p>
+
+            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>1. Zero 3rd-Party Tracking</h4>
+            <p>We do not use Google Analytics, Facebook Pixels, or any 3rd-party ad trackers. All event logging is handled strictly in-house via secure database instances.</p>
+
+            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>2. Data Isolation & Security</h4>
+            <p>Your transactions, account balances, and personal information are strictly isolated using Supabase Row-Level Security (RLS). Only your authenticated session (`auth.uid()`) can decrypt and access your records.</p>
+
+            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>3. Data Rights</h4>
+            <p>You retain 100% ownership of your data. You can export your financial statements or delete your account data at any time.</p>
+          </div>
+          <div className="modal-actions" style={{ marginTop: 20 }}>
+            <button className="btn btn-primary" onClick={() => setShowPrivacyModal(false)}>Close</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Terms of Service Modal */}
+      {showTermsModal && (
+        <Modal
+          title="Terms of Service"
+          onClose={() => setShowTermsModal(false)}
+        >
+          <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8, display: 'flex', flexDirection: 'column', gap: 14, fontSize: '0.875rem', lineHeight: '1.6' }}>
+            <p><strong>Effective Date:</strong> August 2026</p>
+            <p>Welcome to <strong>Accountify</strong>. By using our services, you agree to these terms.</p>
+
+            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>1. Service Usage</h4>
+            <p>Accountify provides double-entry financial tracking, shared ledgers, and PWA accounting toolsets for personal and small business use.</p>
+
+            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>2. Account Security</h4>
+            <p>You are responsible for maintaining the confidentiality of your account credentials and TOTP two-factor authentication tokens.</p>
+
+            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>3. Collaborative Ledgers</h4>
+            <p>When generating a Shared Ledger link, you explicitly grant the recipient permission to view and verify shared ledger line-items.</p>
+          </div>
+          <div className="modal-actions" style={{ marginTop: 20 }}>
+            <button className="btn btn-primary" onClick={() => setShowTermsModal(false)}>Close</button>
+          </div>
         </Modal>
       )}
 

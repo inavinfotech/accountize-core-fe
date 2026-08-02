@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getTransactions, getAccounts, updateTransaction, deleteTransaction, verifyTransaction, rejectTransaction, getLinkedAccounts } from '../lib/db'
-import { formatCurrency, getAmountClass, formatDate } from '../lib/utils'
+import { formatCurrency, getAmountClass, formatDate, formatTransactionCreatedAt } from '../lib/utils'
+import { TransactionsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import { 
@@ -181,7 +182,7 @@ export default function Transactions() {
       await updateTransaction(editingTransaction.id, {
         amount: parseFloat(editingTransaction.amount),
         description: editingTransaction.description,
-        created_at: editingTransaction.date ? new Date(editingTransaction.date).toISOString() : undefined
+        created_at: formatTransactionCreatedAt(editingTransaction.date, editingTransaction.created_at)
       })
       setEditingTransaction(null)
       // Refresh local list and notify parent app
@@ -204,6 +205,10 @@ export default function Transactions() {
     } catch (err) {
       console.error('Failed to delete transaction:', err)
     }
+  }
+
+  if (loading) {
+    return <TransactionsSkeleton />
   }
 
   return (

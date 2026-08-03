@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { MoreVertical, Receipt, LogOut } from 'lucide-react'
+import { MoreVertical, Receipt, HelpCircle, LogOut } from 'lucide-react'
 
 export default function TopRightMenu() {
   const { signOut } = useAuth()
@@ -30,6 +30,11 @@ export default function TopRightMenu() {
 
   const handleAllTransactionsClick = () => {
     navigate('/transactions')
+    setIsOpen(false)
+  }
+
+  const handleRerunGuideClick = () => {
+    window.dispatchEvent(new CustomEvent('accountify:open-onboarding'))
     setIsOpen(false)
   }
 
@@ -62,6 +67,15 @@ export default function TopRightMenu() {
           >
             <Receipt size={16} />
             <span>Transactions</span>
+          </button>
+
+          <button 
+            className="top-right-menu-item" 
+            onClick={handleRerunGuideClick}
+            type="button"
+          >
+            <HelpCircle size={16} />
+            <span>Rerun Onboarding Demo</span>
           </button>
           
           <button 

@@ -12,10 +12,14 @@ export function AuthProvider({ children }) {
   const [isMfaRequired, setIsMfaRequired] = useState(false)
 
   useEffect(() => {
-    // Check active session on mount
+    // Check active session on mount (with timeout to prevent white screen hang)
     async function getInitialSession() {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Session check timed out')), 10000)
+        )
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise])
         if (error) throw error
         setSession(session)
         setUser(session?.user ?? null)
@@ -27,6 +31,10 @@ export function AuthProvider({ children }) {
         }
       } catch (err) {
         console.error('Error getting initial session:', err)
+        // On timeout or error, clear auth state so app doesn't hang on white screen
+        setSession(null)
+        setUser(null)
+        setIsMfaRequired(false)
       } finally {
         setLoading(false)
       }

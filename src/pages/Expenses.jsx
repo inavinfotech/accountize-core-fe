@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting, updateExpense, getAccountBalances, createTransaction, deleteTransaction } from '../lib/db'
-import { formatCurrency, formatDate, getDaysInMonth, exportToCSV } from '../lib/utils'
+import { formatCurrency, formatDate, getDaysInMonth } from '../lib/utils'
+import { exportToPDF } from '../lib/pdfExport'
 import { ExpensesSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -182,14 +184,10 @@ export default function Expenses() {
     }
   }
 
-  const handleExportExpenses = () => {
-    const headers = ['Date', 'Amount (₹)', 'Description']
-    const rows = expenses.map(e => [
-      formatDate(e.date),
-      e.amount,
-      e.description || ''
-    ])
-    exportToCSV(`expenses_${currentMonth}.csv`, headers, rows)
+  const { user } = useAuth() || {}
+
+  const handleExportPDF = () => {
+    exportToPDF('expenses', { expenses, perDayAvg }, currentMonth, user)
   }
 
   async function handleAdd(e) {
@@ -424,9 +422,19 @@ export default function Expenses() {
           <h2>Expenses</h2>
           <p>Track daily spending and analyze patterns</p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenAdd}>
-          <Plus size={16} /> Add Expense
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary btn-sm btn-mobile-icon"
+            type="button"
+            onClick={handleExportPDF}
+            title="Export PDF Summary"
+          >
+            <Download size={14} /> <span className="btn-text">PDF Report</span>
+          </button>
+          <button className="btn btn-primary" onClick={handleOpenAdd}>
+            <Plus size={16} /> Add Expense
+          </button>
+        </div>
       </div>
 
       {/* Analytics Cards */}
@@ -755,14 +763,6 @@ export default function Expenses() {
           </div>
           {expenses.length > 0 && (
             <div style={{ display: 'flex', gap: 6 }}>
-              <button
-                className="btn btn-secondary btn-sm btn-mobile-icon"
-                type="button"
-                onClick={handleExportExpenses}
-                title="Export CSV"
-              >
-                <Download size={14} /> <span className="btn-text">Export CSV</span>
-              </button>
               <button
                 className={`btn btn-sm btn-mobile-icon ${rearrangeMode ? 'btn-primary' : 'btn-secondary'}`}
                 type="button"

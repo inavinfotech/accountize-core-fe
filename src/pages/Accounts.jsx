@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction, isDefaultAccount } from '../lib/db'
-import { formatCurrency, getAmountClass, getInitials, formatDate, exportToCSV, formatTransactionCreatedAt } from '../lib/utils'
+import { formatCurrency, getAmountClass, getInitials, formatDate, formatTransactionCreatedAt } from '../lib/utils'
 import { AccountsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -193,16 +193,7 @@ export default function Accounts() {
     }
   }
 
-  const handleExportLedger = (account) => {
-    const txns = account.transactions || []
-    const headers = ['Date', 'Description', 'Amount (₹)']
-    const rows = txns.map(t => [
-      formatDate(t.created_at),
-      t.description || '',
-      t.amount
-    ])
-    exportToCSV(`${account.name}_ledger_${currentMonth}.csv`, headers, rows)
-  }
+
 
   const handleShareAccount = async (accountId) => {
     try {
@@ -618,13 +609,6 @@ export default function Accounts() {
                        title="Add Transaction"
                      >
                        <Plus size={14} /> <span className="btn-text">Add Transaction</span>
-                     </button>
-                     <button
-                       className="btn btn-secondary btn-sm btn-mobile-icon"
-                       onClick={() => handleExportLedger(account)}
-                       title="Export Ledger"
-                     >
-                       <Download size={14} /> <span className="btn-text">Export Ledger</span>
                      </button>
                      {account.type === 'receivable' && (
                        <>

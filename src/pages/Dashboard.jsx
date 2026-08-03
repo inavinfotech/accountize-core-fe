@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import { getDashboardData, createTransaction, getTransactions, createAccount } from '../lib/db'
-import { formatCurrency, getAmountClass, getDaysInMonth, exportToCSV } from '../lib/utils'
+import { formatCurrency, getAmountClass, getDaysInMonth } from '../lib/utils'
 import { analytics } from '../lib/analytics'
+import { exportToPDF } from '../lib/pdfExport'
 import { DashboardSkeleton } from '../components/Skeletons'
 import InfoButton from '../components/InfoButton'
 import Modal from '../components/Modal'
@@ -183,28 +185,11 @@ export default function Dashboard() {
     }
   }
 
-  const handleExportMonthlySummary = () => {
+  const { user } = useAuth() || {}
+
+  const handleExportPDF = () => {
     if (!data) return
-    const headers = ['Category', 'Item/Account', 'Amount / Balance (₹)', 'Type']
-    const rows = [
-      ['Summary', 'Total Assets', data.totalAssets, 'Asset'],
-      ['Summary', 'Total Liabilities', data.totalPayables, 'Liability'],
-      ['Summary', 'Net Available Balance', data.availableBalance, 'Net Balance'],
-      ['Summary', 'Cash Balance', data.cashBalance, 'Self'],
-      ['Summary', 'Online Balance', data.onlineBalance, 'Self'],
-      ['Summary', 'Bank Balance', data.bankBalance, 'Self'],
-      ['Summary', 'Monthly Spend Total', data.totalExpenses, 'Spend'],
-      ['Summary', 'Daily Avg Spend', data.perDayAvg, 'Spend'],
-      [],
-      ['Account Details', 'Name', 'Balance (₹)', 'Type']
-    ]
-    
-    data.balances.forEach(acc => {
-      rows.push(['Account Details', acc.name, acc.balance, acc.type])
-    })
-    
-    exportToCSV(`monthly_summary_${currentMonth}.csv`, headers, rows)
-    analytics.statementExported('csv', currentMonth)
+    exportToPDF('dashboard', data, currentMonth, user)
   }
 
   if (loading) {
@@ -224,10 +209,10 @@ export default function Dashboard() {
           <button
             className="btn btn-secondary btn-sm btn-mobile-icon"
             type="button"
-            onClick={handleExportMonthlySummary}
-            title="Export Backup"
+            onClick={handleExportPDF}
+            title="Export PDF Statement"
           >
-            <Download size={14} /> <span className="btn-text">Export Backup</span>
+            <Download size={14} /> <span className="btn-text">PDF Report</span>
           </button>
         )}
       </div>

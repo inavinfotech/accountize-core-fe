@@ -42,7 +42,21 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: true
+        skipWaiting: true,
+        // Serve index.html for all navigation requests (SPA client-side routing)
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/shared\//],
+        // Cache Google Fonts and Supabase API at runtime
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: { maxEntries: 20, maxAgeSeconds: 365 * 24 * 60 * 60 }
+            }
+          }
+        ]
       }
     })
   ],

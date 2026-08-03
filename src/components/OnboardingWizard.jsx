@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../context/AuthContext'
 import { analytics } from '../lib/analytics'
 import { Sparkles, Calculator, Share2, Wallet, ArrowRight, Check, X } from 'lucide-react'
@@ -11,13 +12,32 @@ export default function OnboardingWizard() {
   const [calculatedValue, setCalculatedValue] = useState(400)
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.id) return
     const key = `accountify_onboarded_${user.id}`
     const hasOnboarded = localStorage.getItem(key)
-    if (!hasOnboarded) {
+    if (hasOnboarded) return
+
+    // Small delay to ensure the dashboard has fully rendered before showing overlay
+    const timer = setTimeout(() => {
+      console.log('[Onboarding] First-time user detected, showing wizard for:', user.id)
+      window.scrollTo(0, 0)
       setIsOpen(true)
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [user?.id])
+
+  useEffect(() => {
+    if (isOpen) {
+      window.scrollTo(0, 0)
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
     }
-  }, [user])
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
 
   const handleMathChange = (val) => {
     setDemoMath(val)
@@ -40,6 +60,7 @@ export default function OnboardingWizard() {
     if (user) {
       localStorage.setItem(`accountify_onboarded_${user.id}`, 'true')
     }
+    document.body.style.overflow = ''
     setIsOpen(false)
     analytics.onboardingCompleted(user?.id)
   }
@@ -48,19 +69,69 @@ export default function OnboardingWizard() {
     if (user) {
       localStorage.setItem(`accountify_onboarded_${user.id}`, 'true')
     }
+    document.body.style.overflow = ''
     setIsOpen(false)
   }
 
   if (!isOpen) return null
 
-  return (
-    <div className="modal-backdrop animate-in" style={{ background: 'rgba(0,0,0,0.7)', zIndex: 1000 }}>
-      <div className="modal-content" style={{ maxWidth: 540, padding: '28px' }}>
+  return createPortal(
+    <div
+      className="animate-in"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100dvh',
+        background: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 999999,
+        padding: '16px',
+        boxSizing: 'border-box'
+      }}
+      onClick={handleSkip}
+    >
+      <div
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '20px',
+          maxWidth: '520px',
+          width: '100%',
+          padding: '28px 24px 24px 24px',
+          position: 'relative',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          maxHeight: 'min(90dvh, 640px)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          overflowY: 'auto',
+          margin: 'auto'
+        }}
+        onClick={e => e.stopPropagation()}
+      >
         <button
-          className="modal-close"
           onClick={handleSkip}
           title="Skip guide"
-          style={{ top: 16, right: 16 }}
+          style={{
+            position: 'absolute',
+            top: 14,
+            right: 14,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-secondary)',
+            padding: 4,
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
         >
           <X size={18} />
         </button>
@@ -246,6 +317,7 @@ export default function OnboardingWizard() {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

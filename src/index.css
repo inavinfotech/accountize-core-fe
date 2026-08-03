@@ -1224,11 +1224,21 @@ tbody tr:last-child td {
   max-width: 100% !important;
   background: transparent !important;
 }
-.auth-container.single-layout .auth-card {
-  border: 1px solid var(--border-color) !important;
-  box-shadow: var(--shadow-lg), 0 20px 25px -5px rgba(0, 0, 0, 0.05) !important;
-  background: var(--bg-card) !important;
-  padding: 40px 32px !important;
+@media (min-width: 641px) {
+  .auth-container.single-layout .auth-card {
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-lg), 0 20px 25px -5px rgba(0, 0, 0, 0.05) !important;
+    background: var(--bg-card) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 16px 0 !important;
+  }
 }
 
 /* Promo Logo */

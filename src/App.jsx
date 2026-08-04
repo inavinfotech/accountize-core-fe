@@ -7,6 +7,7 @@ import TopRightMenu from './components/TopRightMenu'
 import NotificationBell from './components/NotificationBell'
 import ToastContainer from './components/ToastContainer'
 import OnboardingWizard from './components/OnboardingWizard'
+import NetworkStatusBanner from './components/NetworkStatusBanner'
 import { analytics } from './lib/analytics'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -210,6 +211,7 @@ function AppLayout() {
       {/* Mobile-only bottom nav */}
       <BottomNav />
       <OnboardingWizard />
+      <NetworkStatusBanner />
     </div>
   )
 }

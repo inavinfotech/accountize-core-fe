@@ -53,6 +53,19 @@ async function sendEvent(eventName, metadata = {}) {
  * Logs frontend runtime errors and unhandled promise rejections to `error_logs`.
  */
 export async function logError(errorMessage, stackTrace = '', url = '') {
+  const msgStr = String(errorMessage || '').toLowerCase()
+  if (
+    !navigator.onLine ||
+    msgStr.includes('err_internet_disconnected') ||
+    msgStr.includes('failed to fetch') ||
+    msgStr.includes('networkerror') ||
+    msgStr.includes('network request failed')
+  ) {
+    // Suppress logging to DB when offline to avoid recursive network fetch errors
+    console.warn('[ErrorLogger] Offline network error suppressed:', errorMessage)
+    return
+  }
+
   try {
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {

@@ -269,7 +269,7 @@ export default function Login() {
                   <span className="window-dot dot-min"></span>
                   <span className="window-dot dot-expand"></span>
                 </div>
-                <div className="window-address">app.accountify.com/dashboard</div>
+                <div className="window-address">app.accountize.com/dashboard</div>
               </div>
               <div className="auth-mockup-layout">
                 <div className="auth-mockup-sidebar">
@@ -329,8 +329,8 @@ export default function Login() {
       <div className="auth-form-side">
         <div className="auth-card">
           <div className="auth-header-logo">
-            <img src="/logo.svg" alt="Accountify Logo" className="auth-logo-icon" />
-            <h1>Accountify</h1>
+            <img src="/logo.svg" alt="Accountize Logo" className="auth-logo-icon" />
+            <h1>Accountize</h1>
             <p>Personal Finance Management</p>
           </div>
 

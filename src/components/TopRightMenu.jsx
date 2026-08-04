@@ -34,7 +34,7 @@ export default function TopRightMenu() {
   }
 
   const handleRerunGuideClick = () => {
-    window.dispatchEvent(new CustomEvent('accountify:open-onboarding'))
+    window.dispatchEvent(new CustomEvent('accountize:open-onboarding'))
     setIsOpen(false)
   }
 

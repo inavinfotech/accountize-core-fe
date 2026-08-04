@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://accountify.inexarum.com/sitemap.xml
+Sitemap: https://accountize.inexarum.com/sitemap.xml

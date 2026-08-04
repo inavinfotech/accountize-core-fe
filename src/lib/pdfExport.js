@@ -70,7 +70,7 @@ function buildGroupedExpenseRows(expensesList) {
 }
 
 /**
- * Professional PDF Financial Report Exporter for Accountify
+ * Professional PDF Financial Report Exporter for Accountize
  */
 export function exportToPDF(type, data, currentMonth, user = null) {
   try {
@@ -108,7 +108,7 @@ export function exportToPDF(type, data, currentMonth, user = null) {
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    doc.text('Accountify', 14, 16)
+    doc.text('Accountize', 14, 16)
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
@@ -418,12 +418,12 @@ export function exportToPDF(type, data, currentMonth, user = null) {
       doc.setFontSize(7)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(...mutedColor)
-      doc.text('Accountify Personal Finance • Confidential Financial Statement', 14, pageHeight - 7)
+      doc.text('Accountize Personal Finance • Confidential Financial Statement', 14, pageHeight - 7)
       doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 7, { align: 'right' })
     }
 
     // ── Save & Track ───────────────────────────────────────────────────────
-    const filename = `Accountify_${type.toUpperCase()}_${currentMonth.replace('-', '_')}.pdf`
+    const filename = `Accountize_${type.toUpperCase()}_${currentMonth.replace('-', '_')}.pdf`
     doc.save(filename)
 
     // Trigger analytics event

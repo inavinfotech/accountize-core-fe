@@ -95,12 +95,12 @@ export default function Settings() {
   }
 
   const handleDownloadBackupCodes = () => {
-    const text = `ACCOUNTIFY MFA RECOVERY CODES\n\nSave these codes in a secure place. Each code can only be used once.\n\n${backupCodes.join('\n')}\n\nGenerated on: ${new Date().toLocaleString()}`
+    const text = `ACCOUNTIZE MFA RECOVERY CODES\n\nSave these codes in a secure place. Each code can only be used once.\n\n${backupCodes.join('\n')}\n\nGenerated on: ${new Date().toLocaleString()}`
     const blob = new Blob([text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `accountify-mfa-recovery-codes.txt`
+    a.download = `accountize-mfa-recovery-codes.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -408,7 +408,7 @@ export default function Settings() {
             </div>
             <div>
               <div className="security-section-title">Sign Out</div>
-              <div className="security-section-desc">Sign out of your Accountify session on this device</div>
+              <div className="security-section-desc">Sign out of your Accountize session on this device</div>
             </div>
           </div>
           <button 
@@ -641,7 +641,7 @@ export default function Settings() {
         >
           <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8, display: 'flex', flexDirection: 'column', gap: 14, fontSize: '0.875rem', lineHeight: '1.6' }}>
             <p><strong>Effective Date:</strong> August 2026</p>
-            <p>At <strong>Accountify</strong> (by iNexarum), we prioritize your financial data privacy above all else.</p>
+            <p>At <strong>Accountize</strong> (by iNexarum), we prioritize your financial data privacy above all else.</p>
 
             <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>1. Zero 3rd-Party Tracking</h4>
             <p>We do not use Google Analytics, Facebook Pixels, or any 3rd-party ad trackers. All event logging is handled strictly in-house via secure database instances.</p>
@@ -666,10 +666,10 @@ export default function Settings() {
         >
           <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8, display: 'flex', flexDirection: 'column', gap: 14, fontSize: '0.875rem', lineHeight: '1.6' }}>
             <p><strong>Effective Date:</strong> August 2026</p>
-            <p>Welcome to <strong>Accountify</strong>. By using our services, you agree to these terms.</p>
+            <p>Welcome to <strong>Accountize</strong>. By using our services, you agree to these terms.</p>
 
             <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>1. Service Usage</h4>
-            <p>Accountify provides double-entry financial tracking, shared ledgers, and PWA accounting toolsets for personal and small business use.</p>
+            <p>Accountize provides double-entry financial tracking, shared ledgers, and PWA accounting toolsets for personal and small business use.</p>
 
             <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 8 }}>2. Account Security</h4>
             <p>You are responsible for maintaining the confidentiality of your account credentials and TOTP two-factor authentication tokens.</p>

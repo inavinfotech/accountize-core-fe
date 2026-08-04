@@ -1,4 +1,4 @@
-# Accountify — Personal Finance Tracker
+# Accountize — Personal Finance Tracker
 
 A React app built to replicate and digitize the logic from your `Accounts.xlsx` Excel spreadsheet, using **Supabase** as the database (direct frontend interaction).
 

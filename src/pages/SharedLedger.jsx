@@ -104,9 +104,9 @@ export default function SharedLedger() {
       <div className="shared-ledger-page">
         <div className="shared-ledger-container">
           <div className="shared-ledger-brand">
-            <img src="/logo.svg" alt="Accountify Logo" className="shared-ledger-logo" />
+            <img src="/logo.svg" alt="Accountize Logo" className="shared-ledger-logo" />
             <div>
-              <h1 className="shared-ledger-brand-name">Accountify</h1>
+              <h1 className="shared-ledger-brand-name">Accountize</h1>
               <p className="shared-ledger-brand-sub">Shared Receivable</p>
             </div>
           </div>
@@ -128,9 +128,9 @@ export default function SharedLedger() {
       <div className="shared-ledger-page">
         <div className="shared-ledger-container">
           <div className="shared-ledger-brand">
-            <img src="/logo.svg" alt="Accountify Logo" className="shared-ledger-logo" />
+            <img src="/logo.svg" alt="Accountize Logo" className="shared-ledger-logo" />
             <div>
-              <h1 className="shared-ledger-brand-name">Accountify</h1>
+              <h1 className="shared-ledger-brand-name">Accountize</h1>
               <p className="shared-ledger-brand-sub">Shared Receivable</p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function SharedLedger() {
             </div>
           </div>
           <div className="shared-ledger-footer">
-            Powered by <strong>Accountify</strong> — Personal Finance Tracker
+            Powered by <strong>Accountize</strong> — Personal Finance Tracker
           </div>
         </div>
       </div>
@@ -167,9 +167,9 @@ export default function SharedLedger() {
       <div className="shared-ledger-container">
         {/* Brand Header */}
         <div className="shared-ledger-brand">
-          <img src="/logo.svg" alt="Accountify Logo" className="shared-ledger-logo" />
+          <img src="/logo.svg" alt="Accountize Logo" className="shared-ledger-logo" />
           <div>
-            <h1 className="shared-ledger-brand-name">Accountify</h1>
+            <h1 className="shared-ledger-brand-name">Accountize</h1>
             <p className="shared-ledger-brand-sub">Shared Receivable</p>
           </div>
         </div>
@@ -398,11 +398,11 @@ export default function SharedLedger() {
           }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
               <Users size={16} color="var(--accent-primary)" />
-              Connect to your Accountify Account
+              Connect to your Accountize Account
             </h3>
             
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              Do you want to sync this shared ledger? Sign in or create a free Accountify account to link this ledger. Transactions logged here by the owner will automatically sync to your dashboard for easy verification and tracking.
+              Do you want to sync this shared ledger? Sign in or create a free Accountize account to link this ledger. Transactions logged here by the owner will automatically sync to your dashboard for easy verification and tracking.
             </p>
             
             <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
@@ -427,7 +427,7 @@ export default function SharedLedger() {
 
         {/* Footer */}
         <div className="shared-ledger-footer">
-          Powered by <strong>Accountify</strong> — Personal Finance Tracker
+          Powered by <strong>Accountize</strong> — Personal Finance Tracker
         </div>
       </div>
     </div>

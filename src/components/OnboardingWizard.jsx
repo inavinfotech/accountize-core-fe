@@ -219,7 +219,7 @@ export default function OnboardingWizard() {
 
   useEffect(() => {
     if (!user?.id) return
-    const key = `accountify_onboarded_${user.id}`
+    const key = `accountize_onboarded_${user.id}`
     const hasOnboarded = localStorage.getItem(key)
     if (hasOnboarded) return
 
@@ -239,8 +239,8 @@ export default function OnboardingWizard() {
       setIsOpen(true)
     }
 
-    window.addEventListener('accountify:open-onboarding', handleOpenTrigger)
-    return () => window.removeEventListener('accountify:open-onboarding', handleOpenTrigger)
+    window.addEventListener('accountize:open-onboarding', handleOpenTrigger)
+    return () => window.removeEventListener('accountize:open-onboarding', handleOpenTrigger)
   }, [])
 
   useEffect(() => {
@@ -273,7 +273,7 @@ export default function OnboardingWizard() {
 
   const handleComplete = () => {
     if (user) {
-      localStorage.setItem(`accountify_onboarded_${user.id}`, 'true')
+      localStorage.setItem(`accountize_onboarded_${user.id}`, 'true')
     }
     document.body.style.overflow = ''
     setIsOpen(false)
@@ -282,7 +282,7 @@ export default function OnboardingWizard() {
 
   const handleSkip = () => {
     if (user) {
-      localStorage.setItem(`accountify_onboarded_${user.id}`, 'true')
+      localStorage.setItem(`accountize_onboarded_${user.id}`, 'true')
     }
     document.body.style.overflow = ''
     setIsOpen(false)
@@ -403,7 +403,7 @@ export default function OnboardingWizard() {
               1. Double-Entry Asset Architecture
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
-              Accountify structures your finances using accounting precision. Separate your funds into <strong>Self</strong> (Cash &amp; Bank), <strong>Receivables</strong> (Money owed to you), and <strong>Payables</strong> (Money you owe).
+              Accountize structures your finances using accounting precision. Separate your funds into <strong>Self</strong> (Cash &amp; Bank), <strong>Receivables</strong> (Money owed to you), and <strong>Payables</strong> (Money you owe).
             </p>
 
             <GraphicAccountStructure />

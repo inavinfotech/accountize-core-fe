@@ -65,9 +65,9 @@ function TopBar() {
   return (
     <header className="mobile-header">
       <div className="sidebar-logo">
-        <img src="/logo.svg" alt="Accountify Logo" className="sidebar-logo-icon" />
+        <img src="/logo.svg" alt="Accountize Logo" className="sidebar-logo-icon" />
         <div className="sidebar-logo-text">
-          <h1>Accountify</h1>
+          <h1>Accountize</h1>
           <p>Personal Finance</p>
         </div>
       </div>
@@ -133,9 +133,9 @@ function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <img src="/logo.svg" alt="Accountify Logo" className="sidebar-logo-icon" />
+          <img src="/logo.svg" alt="Accountize Logo" className="sidebar-logo-icon" />
           <div className="sidebar-logo-text">
-            <h1>Accountify</h1>
+            <h1>Accountize</h1>
             <p>Personal Finance</p>
           </div>
         </div>

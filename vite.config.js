@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'logo-192.png', 'logo-512.png', 'robots.txt'],
       manifest: {
-        short_name: "Accountify",
-        name: "Accountify — Personal Finance Tracker",
+        short_name: "Accountize",
+        name: "Accountize — Personal Finance Tracker",
         icons: [
           {
             src: "/logo-192.png",
@@ -36,7 +36,7 @@ export default defineConfig({
         background_color: "#f8fafc",
         display: "standalone",
         theme_color: "#6366f1",
-        description: "Accountify — Personal finance tracker with receivables, payables, daily expenses, and fault detection."
+        description: "Accountize — Personal finance tracker with receivables, payables, daily expenses, and fault detection."
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],

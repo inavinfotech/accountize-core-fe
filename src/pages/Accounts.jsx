@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction, isDefaultAccount } from '../lib/db'
+import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction, isDefaultAccount, getActiveSharedLinksCount } from '../lib/db'
+import { useSubscription } from '../context/SubscriptionContext'
+import UpgradeModal from '../components/UpgradeModal'
 import { formatCurrency, getAmountClass, getInitials, formatDate, formatTransactionCreatedAt } from '../lib/utils'
 import { AccountsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
@@ -14,6 +16,7 @@ import {
 
 export default function Accounts() {
   const { currentMonth, refreshKey, triggerRefresh } = useApp()
+  const { limits, isPro, isTrial } = useSubscription()
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddAccount, setShowAddAccount] = useState(false)
@@ -31,6 +34,8 @@ export default function Accounts() {
 
   const [syncWithOnline, setSyncWithOnline] = useState(false)
   const [syncOnlineAccountId, setSyncOnlineAccountId] = useState('')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeReason, setUpgradeReason] = useState('')
 
   const selectedAccount = useMemo(() => {
     if (!showAddTransaction) return null
@@ -91,6 +96,15 @@ export default function Accounts() {
   async function handleAddAccount(e) {
     e.preventDefault()
     try {
+      // Tier enforcement: check account limit
+      const nonDefaultAccounts = accounts.filter(a => !isDefaultAccount(a))
+      if (nonDefaultAccounts.length >= limits.maxAccounts) {
+        setUpgradeReason(`You've reached the maximum of ${limits.maxAccounts} custom accounts on the Free plan. Upgrade to Pro for unlimited accounts.`)
+        setShowUpgradeModal(true)
+        setShowAddAccount(false)
+        return
+      }
+
       const accountData = {
         name: newAccount.name,
         type: newAccount.type,
@@ -197,6 +211,14 @@ export default function Accounts() {
 
   const handleShareAccount = async (accountId) => {
     try {
+      // Tier enforcement: check shared link limit
+      const activeLinksCount = await getActiveSharedLinksCount()
+      if (activeLinksCount >= limits.maxSharedLinks) {
+        setUpgradeReason(`You've reached the maximum of ${limits.maxSharedLinks} shared links on the Free plan. Upgrade to Pro for unlimited shared ledger links.`)
+        setShowUpgradeModal(true)
+        return
+      }
+
       setSharingAccount({ accountId, loading: true, copied: false })
       const link = await createSharedLink(accountId)
       const shareUrl = `${window.location.origin}/shared/${link.token}`
@@ -930,6 +952,12 @@ export default function Accounts() {
           onClose={() => setDeleteConfirm(null)}
         />
       )}
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        triggerReason={upgradeReason}
+      />
     </div>
   )
 }

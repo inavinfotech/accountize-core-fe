@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
+import { SubscriptionProvider } from './context/SubscriptionContext'
 import TopRightMenu from './components/TopRightMenu'
 import NotificationBell from './components/NotificationBell'
 import ToastContainer from './components/ToastContainer'
@@ -20,11 +21,13 @@ const SharedLedger = lazy(() => import('./pages/SharedLedger'))
 const Transactions = lazy(() => import('./pages/Transactions'))
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
-  Calendar, LogOut, Settings as SettingsIcon
+  Calendar, LogOut, Settings as SettingsIcon, Ban
 } from 'lucide-react'
+import { useSubscription } from './context/SubscriptionContext'
 
 function ProtectedRoute({ children }) {
-  const { user, isMfaRequired, loading } = useAuth()
+  const { user, isMfaRequired, loading, signOut } = useAuth()
+  const { isSuspended } = useSubscription()
   
   if (loading) {
     return (
@@ -36,6 +39,28 @@ function ProtectedRoute({ children }) {
   
   if (!user || isMfaRequired) {
     return <Navigate to="/login" replace />
+  }
+
+  if (isSuspended) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', width: '100vw', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+          <Ban size={32} />
+        </div>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>Account Suspended</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: 420, lineHeight: 1.5, margin: '0 0 24px' }}>
+          Your Accountize ledger access has been temporarily suspended by an administrator. Please contact support to resolve this issue.
+        </p>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <a href="mailto:support@accountize.in" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+            Contact Support
+          </a>
+          <button className="btn btn-secondary" onClick={() => signOut()}>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    )
   }
   
   return children
@@ -227,12 +252,23 @@ function ScrollToTop() {
   return null
 }
 
+function ReferralRedirect() {
+  const { code } = useParams()
+  useEffect(() => {
+    if (code) {
+      localStorage.setItem('accountize_ref_code', code)
+    }
+  }, [code])
+  return <Navigate to={`/login?ref=${code || ''}&signup=true`} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
       <AuthProvider>
         <NotificationProvider>
+        <SubscriptionProvider>
           <AppProvider>
             <Suspense fallback={
               <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
@@ -241,6 +277,7 @@ export default function App() {
             }>
               <Routes>
                 <Route path="/login" element={<LoginRoute />} />
+                <Route path="/ref/:code" element={<ReferralRedirect />} />
                 <Route path="/shared/:token" element={<SharedLedger />} />
                 <Route 
                   path="/*" 
@@ -253,6 +290,7 @@ export default function App() {
               </Routes>
             </Suspense>
           </AppProvider>
+        </SubscriptionProvider>
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>

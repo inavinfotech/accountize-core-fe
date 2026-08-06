@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
+import { applyReferralCode } from '../lib/db'
 import {
   Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2,
   Shield, Wand2, KeyRound
@@ -35,6 +36,17 @@ export default function Login() {
   const redirectUrl = searchParams.get('redirect') || '/'
 
   const [isSignUp, setIsSignUp] = useState(false)
+
+  useEffect(() => {
+    const refCode = searchParams.get('ref')
+    const signupMode = searchParams.get('signup') || searchParams.get('mode') === 'signup'
+    if (refCode) {
+      localStorage.setItem('accountize_ref_code', refCode)
+    }
+    if (signupMode || refCode) {
+      setIsSignUp(true)
+    }
+  }, [])
   const [authMethod, setAuthMethod] = useState('password') // 'password' | 'magic'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -69,7 +81,7 @@ export default function Login() {
     try {
       const redirectOption = redirectUrl && redirectUrl !== '/' 
         ? { redirectTo: `${window.location.origin}${redirectUrl}` } 
-        : { redirectTo: `${window.location.origin}/` }
+        : { redirectTo: window.location.origin }
       await signInWithOAuth(provider, redirectOption)
     } catch (err) {
       console.error(err)
@@ -98,7 +110,7 @@ export default function Login() {
     try {
       const redirectOption = redirectUrl && redirectUrl !== '/' 
         ? { emailRedirectTo: `${window.location.origin}${redirectUrl}` } 
-        : { emailRedirectTo: `${window.location.origin}/` }
+        : { emailRedirectTo: window.location.origin }
       await signInWithMagicLink(email, redirectOption)
       setSuccessMsg('Magic link sent! Check your email inbox and click the link to sign in.')
     } catch (err) {
@@ -133,6 +145,15 @@ export default function Login() {
     try {
       if (isSignUp) {
         await signUp(email, password)
+        const savedRefCode = localStorage.getItem('accountize_ref_code') || searchParams.get('ref')
+        if (savedRefCode) {
+          try {
+            await applyReferralCode(savedRefCode)
+            localStorage.removeItem('accountize_ref_code')
+          } catch (refErr) {
+            console.warn('Failed to apply referral code:', refErr)
+          }
+        }
         setSuccessMsg('Registration successful! Please check your email for a confirmation link (if enabled) or try logging in.')
         // Clear password fields
         setPassword('')

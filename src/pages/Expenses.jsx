@@ -8,9 +8,11 @@ import { ExpensesSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import InfoButton from '../components/InfoButton'
+import UpgradeModal from '../components/UpgradeModal'
+import { useSubscription } from '../context/SubscriptionContext'
 import {
   Plus, Trash2, Receipt, Calendar, TrendingDown,
-  Calculator, Target, Clock, Download,
+  Calculator, Target, Clock, Download, Lock,
   ArrowUpDown, Check, GripVertical, ChevronDown, ChevronUp
 } from 'lucide-react'
 import {
@@ -18,6 +20,8 @@ import {
 } from 'recharts'
 
 export default function Expenses() {
+  const { isPro, limits } = useSubscription()
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const { currentMonth, refreshKey, triggerRefresh } = useApp()
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -423,14 +427,26 @@ export default function Expenses() {
           <p>Track daily spending and analyze patterns</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-secondary btn-sm btn-mobile-icon"
-            type="button"
-            onClick={handleExportPDF}
-            title="Export PDF Summary"
-          >
-            <Download size={14} /> <span className="btn-text">PDF Report</span>
-          </button>
+          {isPro || limits.hasPdfExport ? (
+            <button
+              className="btn btn-secondary btn-sm btn-mobile-icon"
+              type="button"
+              onClick={handleExportPDF}
+              title="Export PDF Summary"
+            >
+              <Download size={14} /> <span className="btn-text">PDF Report</span>
+            </button>
+          ) : (
+            <button
+              className="btn btn-secondary btn-sm btn-mobile-icon"
+              type="button"
+              onClick={() => setShowUpgradeModal(true)}
+              title="PDF Export — Pro feature"
+              style={{ opacity: 0.65 }}
+            >
+              <Lock size={13} /> <span className="btn-text">PDF Report</span>
+            </button>
+          )}
           <button className="btn btn-primary" onClick={handleOpenAdd}>
             <Plus size={16} /> Add Expense
           </button>
@@ -1011,6 +1027,12 @@ export default function Expenses() {
           onClose={() => setDeleteConfirm(null)}
         />
       )}
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        triggerReason="PDF Financial Reports are a Pro feature. Upgrade to export professional PDF statements."
+      />
     </div>
   )
 }

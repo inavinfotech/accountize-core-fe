@@ -671,3 +671,133 @@ export async function getPendingTransactions() {
   if (error) throw error
   return data
 }
+
+// ============ REFERRAL SYSTEM ============
+
+/**
+ * Get or create the current user's referral code
+ */
+export async function getUserReferralCode() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Check if user already has a referral code
+  const { data: existing } = await supabase
+    .from('referrals')
+    .select('referral_code')
+    .eq('referrer_id', user.id)
+    .is('referred_id', null)
+    .limit(1)
+    .maybeSingle()
+
+  if (existing?.referral_code) return existing.referral_code
+
+  // Generate a new unique referral code
+  const code = generateReferralCode(user.email || user.id)
+
+  const { data, error } = await supabase
+    .from('referrals')
+    .insert({
+      referrer_id: user.id,
+      referral_code: code,
+      status: 'pending',
+    })
+    .select('referral_code')
+    .single()
+
+  if (error) {
+    // Code collision, retry with random suffix
+    const retryCode = code + Math.random().toString(36).substring(2, 4).toUpperCase()
+    const { data: retryData, error: retryError } = await supabase
+      .from('referrals')
+      .insert({
+        referrer_id: user.id,
+        referral_code: retryCode,
+        status: 'pending',
+      })
+      .select('referral_code')
+      .single()
+    if (retryError) throw retryError
+    return retryData.referral_code
+  }
+
+  return data.referral_code
+}
+
+function generateReferralCode(identifier) {
+  // Create a short, memorable referral code from email or user id
+  const base = (identifier || '').split('@')[0].replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase()
+  const suffix = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return `${base || 'REF'}${suffix}`
+}
+
+/**
+ * Apply a referral code when a new user signs up
+ */
+export async function applyReferralCode(code) {
+  if (!code) return null
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // Find the referral record with this code
+  const { data: referral } = await supabase
+    .from('referrals')
+    .select('*')
+    .eq('referral_code', code)
+    .eq('status', 'pending')
+    .is('referred_id', null)
+    .maybeSingle()
+
+  if (!referral) return null
+
+  // Don't allow self-referral
+  if (referral.referrer_id === user.id) return null
+
+  // Update the referral with the new user's id
+  const { error } = await supabase
+    .from('referrals')
+    .update({
+      referred_id: user.id,
+      status: 'completed',
+    })
+    .eq('id', referral.id)
+
+  if (error) {
+    console.error('Failed to apply referral:', error)
+    return null
+  }
+
+  analytics.referralCompleted(referral.referrer_id, code)
+  return referral
+}
+
+/**
+ * Get referral statistics for the current user
+ */
+export async function getReferralStats() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { total: 0, completed: 0, rewarded: 0 }
+
+  const { data, error } = await supabase
+    .from('referrals')
+    .select('status, reward_applied')
+    .eq('referrer_id', user.id)
+
+  if (error || !data) return { total: 0, completed: 0, rewarded: 0 }
+
+  return {
+    total: data.length,
+    completed: data.filter(r => r.status === 'completed' || r.status === 'rewarded').length,
+    rewarded: data.filter(r => r.reward_applied === true).length,
+  }
+}
+
+// ============ SHARED LINKS COUNT (for tier enforcement) ============
+
+export async function getActiveSharedLinksCount() {
+  const { count, error } = await supabase
+    .from('shared_links')
+    .select('*', { count: 'exact', head: true })
+  if (error) return 0
+  return count || 0
+}

@@ -590,14 +590,17 @@ tbody tr:last-child td {
 }
 
 .form-label {
+  display: block;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
 .form-input,
 .form-select {
-  padding: 8px 12px;
+  width: 100%;
+  padding: 10px 14px;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -3213,6 +3216,95 @@ tbody tr:last-child td {
   to { transform: scaleX(0); }
 }
 
+/* ===== UPGRADE MODAL STYLING ===== */
+.upgrade-modal-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.25);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+.upgrade-modal-header {
+  background: linear-gradient(135deg, #1e3a6e 0%, #2a498c 50%, #3b5eb0 100%);
+  padding: 24px 28px 18px;
+  color: #ffffff;
+  position: relative;
+  flex-shrink: 0;
+}
 
+.upgrade-modal-body {
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.upgrade-plan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 640px) {
+  .upgrade-modal-card {
+    max-width: 100%;
+    border-radius: 16px;
+    max-height: 88vh;
+  }
+
+  .upgrade-modal-header {
+    padding: 18px 20px 14px;
+  }
+
+  .upgrade-modal-body {
+    padding: 16px 16px 20px;
+  }
+
+  .upgrade-plan-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+/* Golden Crown Shimmer Animation */
+.pro-icon-gold-shine {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4) !important;
+}
+
+.pro-icon-gold-shine::after {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: -100%;
+  width: 300%;
+  height: 300%;
+  background: linear-gradient(
+    45deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 65%
+  );
+  animation: goldShimmer 2.8s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes goldShimmer {
+  0% {
+    transform: translate(-60%, -60%) rotate(25deg);
+  }
+  100% {
+    transform: translate(60%, 60%) rotate(25deg);
+  }
+}
 

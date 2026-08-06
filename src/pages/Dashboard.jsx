@@ -9,9 +9,11 @@ import { exportToPDF } from '../lib/pdfExport'
 import { DashboardSkeleton } from '../components/Skeletons'
 import InfoButton from '../components/InfoButton'
 import Modal from '../components/Modal'
+import UpgradeModal from '../components/UpgradeModal'
+import { useSubscription } from '../context/SubscriptionContext'
 import {
   Wallet, TrendingUp, TrendingDown, Banknote, CreditCard,
-  ShieldCheck, ShieldAlert, ArrowUpRight, ArrowDownRight, PiggyBank, Download
+  ShieldCheck, ShieldAlert, ArrowUpRight, ArrowDownRight, PiggyBank, Download, Lock, Crown
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
@@ -20,6 +22,8 @@ import {
 const PIE_COLORS = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
 export default function Dashboard() {
+  const { isPro, limits } = useSubscription()
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const navigate = useNavigate()
   const { currentMonth, refreshKey, triggerRefresh } = useApp()
   const [data, setData] = useState(null)
@@ -206,14 +210,26 @@ export default function Dashboard() {
           <p>Your financial overview at a glance</p>
         </div>
         {data && (
-          <button
-            className="btn btn-secondary btn-sm btn-mobile-icon"
-            type="button"
-            onClick={handleExportPDF}
-            title="Export PDF Statement"
-          >
-            <Download size={14} /> <span className="btn-text">PDF Report</span>
-          </button>
+          isPro || limits.hasPdfExport ? (
+            <button
+              className="btn btn-secondary btn-sm btn-mobile-icon"
+              type="button"
+              onClick={handleExportPDF}
+              title="Export PDF Statement"
+            >
+              <Download size={14} /> <span className="btn-text">PDF Report</span>
+            </button>
+          ) : (
+            <button
+              className="btn btn-secondary btn-sm btn-mobile-icon"
+              type="button"
+              onClick={() => setShowUpgradeModal(true)}
+              title="PDF Export — Pro feature"
+              style={{ opacity: 0.65 }}
+            >
+              <Lock size={13} /> <span className="btn-text">PDF Report</span>
+            </button>
+          )
         )}
       </div>
 
@@ -581,6 +597,12 @@ export default function Dashboard() {
           </div>
         </Modal>
       )}
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        triggerReason="PDF Financial Reports are a Pro feature. Upgrade to export professional PDF statements."
+      />
     </div>
   )
 }

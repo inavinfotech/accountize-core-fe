@@ -20,7 +20,14 @@ export const analytics = {
   sharedLedgerLinked: (linkId) => sendEvent('shared_ledger_linked', { link_id: linkId }),
   statementExported: (format, monthYear) => sendEvent('statement_exported', { format, month_year: monthYear }),
   mfaEnabled: () => sendEvent('mfa_enabled', {}),
-  supportTicketSubmitted: (subject) => sendEvent('support_ticket_submitted', { subject })
+  supportTicketSubmitted: (subject) => sendEvent('support_ticket_submitted', { subject }),
+
+  // Subscription, Payment & Referral Funnels
+  upgradeClicked: (reason = 'settings', billingCycle = 'monthly') => sendEvent('upgrade_clicked', { reason, billing_cycle: billingCycle }),
+  paymentInitiated: (billingCycle, amount) => sendEvent('payment_initiated', { billing_cycle: billingCycle, amount }),
+  paymentCompleted: (orderId, paymentId, billingCycle, amount) => sendEvent('payment_completed', { order_id: orderId, payment_id: paymentId, billing_cycle: billingCycle, amount }),
+  referralLinkCopied: (referralCode) => sendEvent('referral_link_copied', { referral_code: referralCode }),
+  referralCompleted: (referrerId, referralCode) => sendEvent('referral_completed', { referrer_id: referrerId, referral_code: referralCode })
 }
 
 /**

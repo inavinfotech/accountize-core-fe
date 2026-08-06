@@ -23,7 +23,25 @@ const PRO_LIMITS = {
 export function SubscriptionProvider({ children }) {
   const { user } = useAuth()
   const [subscription, setSubscription] = useState(null)
+  const [receipts, setReceipts] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const fetchReceipts = useCallback(async () => {
+    if (!user) {
+      setReceipts([])
+      return
+    }
+    try {
+      const { data } = await supabase
+        .from('payment_receipts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      setReceipts(data || [])
+    } catch (err) {
+      console.error('Failed to fetch payment receipts:', err)
+    }
+  }, [user])
 
   const fetchSubscription = useCallback(async () => {
     if (!user) {
@@ -82,12 +100,14 @@ export function SubscriptionProvider({ children }) {
 
   useEffect(() => {
     fetchSubscription()
-  }, [fetchSubscription])
+    fetchReceipts()
+  }, [fetchSubscription, fetchReceipts])
 
   // Refresh subscription after payment or plan change
   const refreshSubscription = useCallback(async () => {
     await fetchSubscription()
-  }, [fetchSubscription])
+    await fetchReceipts()
+  }, [fetchSubscription, fetchReceipts])
 
   // Upgrade subscription after successful payment
   const upgradeToProAfterPayment = useCallback(async (billingCycle, paymentOrderId, paymentId) => {
@@ -121,11 +141,32 @@ export function SubscriptionProvider({ children }) {
       throw error
     }
 
+    // Auto-create payment receipt record
+    const receiptNo = `INV-${now.toISOString().slice(0, 7).replace('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`
+    const amount = billingCycle === 'annual' ? 1499 : 149
+
+    try {
+      await supabase.from('payment_receipts').insert({
+        user_id: user.id,
+        receipt_number: receiptNo,
+        plan: 'pro',
+        billing_cycle: billingCycle,
+        amount,
+        currency: 'INR',
+        payment_order_id: paymentOrderId,
+        payment_id: paymentId,
+        created_at: now.toISOString()
+      })
+    } catch (rErr) {
+      console.warn('Failed to insert receipt log:', rErr)
+    }
+
     await refreshSubscription()
   }, [user, refreshSubscription])
 
   const value = {
     subscription,
+    receipts,
     loading: loading,
     plan: subscription?.plan || 'free',
     status: subscription?.status || 'active',

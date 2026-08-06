@@ -433,3 +433,144 @@ export function exportToPDF(type, data, currentMonth, user = null) {
     alert('Failed to generate PDF. Please try again.')
   }
 }
+
+/**
+ * Export Branded Payment Tax Invoice / Receipt PDF
+ */
+export function exportPaymentInvoicePDF({ receipt, user }) {
+  try {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+
+    const primaryColor = [15, 23, 42]     // #0f172a
+    const accentColor = [217, 119, 6]     // #d97706 (Amber/Gold)
+    const mutedColor = [100, 116, 139]    // #64748b
+    const borderColor = [226, 232, 240]   // #e2e8f0
+
+    const createdDate = receipt.created_at
+      ? new Date(receipt.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+
+    const receiptNo = receipt.receipt_number || `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${receipt.id?.slice(0, 4) || '1001'}`
+    const planName = receipt.plan === 'pro'
+      ? `Accountize Pro Plan (${receipt.billing_cycle === 'annual' ? 'Annual Subscription' : 'Monthly Subscription'})`
+      : 'Accountize Pro Plan'
+
+    const amountNum = Number(receipt.amount) || (receipt.billing_cycle === 'annual' ? 1499 : 149)
+    const formattedTotal = formatPdfCurrency(amountNum)
+
+    // Header Branding Bar
+    doc.setFillColor(...primaryColor)
+    doc.rect(0, 0, pageWidth, 28, 'F')
+
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text('Accountize', 14, 14)
+
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(203, 213, 225)
+    doc.text('Personal Financial Command Center • app.accountize.in', 14, 21)
+
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text('PAYMENT RECEIPT', pageWidth - 14, 15, { align: 'right' })
+
+    // Invoice Meta Grid
+    let startY = 38
+
+    // Left Column: Billed To
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...mutedColor)
+    doc.text('BILLED TO', 14, startY)
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Accountize Subscriber', 14, startY + 6)
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...mutedColor)
+    doc.text(user?.email || 'N/A', 14, startY + 12)
+
+    // Right Column: Invoice Details
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...mutedColor)
+    doc.text('INVOICE DETAILS', pageWidth - 14, startY, { align: 'right' })
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...primaryColor)
+    doc.text(`Receipt #: ${receiptNo}`, pageWidth - 14, startY + 6, { align: 'right' })
+    doc.text(`Date: ${createdDate}`, pageWidth - 14, startY + 11, { align: 'right' })
+    if (receipt.payment_order_id) {
+      doc.text(`Order ID: ${receipt.payment_order_id}`, pageWidth - 14, startY + 16, { align: 'right' })
+    }
+
+    startY += 26
+
+    // Items Table
+    autoTable(doc, {
+      startY: startY,
+      head: [['Item Description', 'Billing Cycle', 'Status', 'Amount Paid']],
+      body: [
+        [
+          planName,
+          receipt.billing_cycle === 'annual' ? '12 Months' : '1 Month',
+          'PAID',
+          formattedTotal
+        ]
+      ],
+      theme: 'striped',
+      headStyles: { fillStyle: 'F', fillColor: primaryColor, textColor: 255, fontSize: 8.5, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 8.5, textColor: [30, 41, 59] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: { 3: { halign: 'right', fontStyle: 'bold', textColor: accentColor } },
+      margin: { left: 14, right: 14 }
+    })
+
+    const finalY = doc.lastAutoTable.finalY + 12
+
+    // Summary Box
+    doc.setFillColor(248, 250, 252)
+    doc.setDrawColor(...borderColor)
+    doc.roundedRect(pageWidth - 84, finalY, 70, 24, 2, 2, 'FD')
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...mutedColor)
+    doc.text('Total Paid:', pageWidth - 80, finalY + 14)
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...accentColor)
+    doc.text(formattedTotal, pageWidth - 18, finalY + 14, { align: 'right' })
+
+    // Footer
+    doc.setDrawColor(...borderColor)
+    doc.line(14, pageHeight - 14, pageWidth - 14, pageHeight - 14)
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...mutedColor)
+    doc.text('Thank you for subscribing to Accountize Pro! For billing support, email support@accountize.in', 14, pageHeight - 8)
+    doc.text('https://accountize.in', pageWidth - 14, pageHeight - 8, { align: 'right' })
+
+    const filename = `${receiptNo}.pdf`
+    doc.save(filename)
+  } catch (err) {
+    console.error('Failed to export payment invoice PDF:', err)
+    alert('Failed to generate invoice PDF. Please try again.')
+  }
+}

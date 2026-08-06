@@ -175,6 +175,12 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  const updatePassword = async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+    return data
+  }
+
   const value = {
     user,
     session,
@@ -185,6 +191,7 @@ export function AuthProvider({ children }) {
     signOut,
     signInWithOAuth,
     signInWithMagicLink,
+    updatePassword,
     enrollMFA,
     challengeAndVerifyMFA,
     unenrollMFA,

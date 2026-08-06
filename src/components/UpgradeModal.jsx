@@ -82,13 +82,17 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
     return (
       <div className="modal-overlay" style={{ zIndex: 9999 }} onClick={onClose}>
         <div className="modal-content" style={{ maxWidth: 440, textAlign: 'center', padding: '40px 32px' }} onClick={e => e.stopPropagation()}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 20px',
-          }}>
-            <Crown size={28} color="white" />
+          <div
+            className="pro-icon-gold-shine"
+            style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+              boxShadow: '0 4px 16px rgba(245, 158, 11, 0.4)',
+            }}
+          >
+            <Crown size={32} color="white" />
           </div>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>
             Welcome to Pro! 🎉

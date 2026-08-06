@@ -6,8 +6,9 @@ import { logError, analytics } from '../lib/analytics'
 import {
   Shield, ShieldCheck, ShieldAlert, Smartphone, Copy, Check,
   Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock, LogOut,
-  HelpCircle, FileText, Lock, Send, MessageSquare, Crown, Zap, CreditCard
+  HelpCircle, FileText, Lock, Send, MessageSquare, Crown, Zap, CreditCard, Download, Receipt, Eye, EyeOff, ChevronDown, ChevronUp
 } from 'lucide-react'
+import { exportPaymentInvoicePDF } from '../lib/pdfExport'
 import { SettingsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -15,12 +16,57 @@ import UpgradeModal from '../components/UpgradeModal'
 import ReferralCard from '../components/ReferralCard'
 
 export default function Settings() {
-  const { user, enrollMFA, challengeAndVerifyMFA, unenrollMFA, getMFAFactors, signOut } = useAuth()
+  const { user, enrollMFA, challengeAndVerifyMFA, unenrollMFA, getMFAFactors, signOut, updatePassword } = useAuth()
 
   const [factors, setFactors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // Password Management State
+  const [newPass, setNewPass] = useState('')
+  const [confirmPass, setConfirmPass] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [passLoading, setPassLoading] = useState(false)
+  const [passMsg, setPassMsg] = useState('')
+  const [passErr, setPassErr] = useState('')
+
+  const identities = user?.identities || []
+  const hasEmailIdentity = identities.some(i => i.provider === 'email') || user?.app_metadata?.providers?.includes('email')
+  const hasGoogleIdentity = identities.some(i => i.provider === 'google') || user?.app_metadata?.providers?.includes('google')
+  const isGoogleOnly = hasGoogleIdentity && !hasEmailIdentity
+
+  const handleSetPassword = async (e) => {
+    e.preventDefault()
+    setPassErr('')
+    setPassMsg('')
+
+    if (!newPass || newPass.length < 6) {
+      setPassErr('Password must be at least 6 characters long.')
+      return
+    }
+
+    if (newPass !== confirmPass) {
+      setPassErr('Passwords do not match.')
+      return
+    }
+
+    setPassLoading(true)
+    try {
+      await updatePassword(newPass)
+      setPassMsg(isGoogleOnly
+        ? 'Password saved successfully! You can now log in using either Google or your email & password.'
+        : 'Password updated successfully!'
+      )
+      setNewPass('')
+      setConfirmPass('')
+    } catch (err) {
+      console.error('Failed to update password:', err)
+      setPassErr(err.message || 'Failed to update password. Please try again.')
+    } finally {
+      setPassLoading(false)
+    }
+  }
 
   // Enrollment flow
   const [enrolling, setEnrolling] = useState(false)
@@ -48,8 +94,12 @@ export default function Settings() {
   const [supportSent, setSupportSent] = useState(false)
 
   // Subscription & Upgrade modal
-  const { plan, status, isPro, isTrial, trialDaysLeft, billingCycle: subBillingCycle, currentPeriodEnd } = useSubscription()
+  const { plan, status, isPro, isTrial, trialDaysLeft, billingCycle: subBillingCycle, currentPeriodEnd, receipts } = useSubscription()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [showInvoices, setShowInvoices] = useState(false)
+  const [showPasswordSection, setShowPasswordSection] = useState(false)
+  const [showMfaSection, setShowMfaSection] = useState(false)
+  const [showAccountInfo, setShowAccountInfo] = useState(false)
 
   useEffect(() => {
     loadFactors()
@@ -337,161 +387,428 @@ export default function Settings() {
               background: 'var(--bg-secondary)',
               borderRadius: 'var(--radius-md)',
               fontSize: '0.72rem', color: 'var(--text-secondary)',
-              marginBottom: 16,
               lineHeight: 1.7,
             }}>
-              <strong style={{ color: 'var(--text-primary)' }}>Unlock with Pro:</strong> Unlimited accounts, unlimited shared links, PDF reports, budget benchmarks & priority support — starting at just ₹149/month.
+              <strong style={{ color: 'var(--text-primary)' }}>Unlock with Pro:</strong> Unlimited accounts, unlimited shared links, PDF reports, budget benchmarks &amp; priority support — starting at just ₹149/month.
             </div>
           )}
         </div>
       </div>
 
-      {/* Referral Section */}
+      {/* Invoices & Billing History Section (Default Collapsed) */}
       <div className="security-section">
-        <ReferralCard />
-      </div>
+        <div className="card" style={{ transition: 'all 0.2s' }}>
+          <div
+            className="security-section-header"
+            onClick={() => setShowInvoices(!showInvoices)}
+            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showInvoices ? 16 : 0, justifyContent: 'space-between' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="security-section-icon indigo" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706' }}>
+                <Receipt size={20} />
+              </div>
+              <div>
+                <div className="security-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>Invoices &amp; Payment Receipts</span>
+                  {receipts && receipts.length > 0 && (
+                    <span className="badge badge-amber" style={{ fontSize: '0.62rem', padding: '1px 8px' }}>
+                      {receipts.length} Receipt{receipts.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                <div className="security-section-desc">Download official PDF tax receipts for your Accountize subscription payments</div>
+              </div>
+            </div>
 
-      {/* MFA Section */}
-      <div className="security-section">
-        <div className="card">
-          <div className="security-section-header">
-            <div className="security-section-icon indigo">
-              <Shield size={20} />
-            </div>
-            <div>
-              <div className="security-section-title">Two-Factor Authentication</div>
-              <div className="security-section-desc">Add an extra layer of security with a TOTP authenticator app</div>
-            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
+              onClick={(e) => { e.stopPropagation(); setShowInvoices(!showInvoices); }}
+            >
+              {showInvoices ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
+            </button>
           </div>
 
-          {loading ? (
-            <div style={{ padding: '20px 0' }}>
-              <div className="skeleton" style={{ height: 60, width: '100%' }} />
+          {showInvoices && (
+            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
+              {receipts && receipts.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {receipts.map(rcpt => (
+                    <div key={rcpt.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: 'var(--bg-secondary)',
+                      borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)',
+                      transition: 'all 0.2s'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div className="pro-icon-gold-shine" style={{
+                          width: 38, height: 38, borderRadius: 10,
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <Receipt size={18} color="white" />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.825rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span>{rcpt.receipt_number}</span>
+                            <span className="badge badge-green" style={{ fontSize: '0.6rem', padding: '1px 6px' }}>PAID</span>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                            {rcpt.billing_cycle === 'annual' ? 'Annual Pro Plan' : 'Monthly Pro Plan'} · {new Date(rcpt.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                          ₹{rcpt.amount}
+                        </span>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', padding: '6px 12px', fontWeight: 600 }}
+                          onClick={() => exportPaymentInvoicePDF({ receipt: rcpt, user })}
+                          title="Download PDF Tax Invoice"
+                        >
+                          <Download size={14} /> PDF Invoice
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  padding: '24px 16px', background: 'var(--bg-secondary)',
+                  borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)',
+                  fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
+                }}>
+                  <Receipt size={24} style={{ opacity: 0.5, color: '#d97706' }} />
+                  <div>No billing receipts found yet. Upgrading to Pro will automatically generate downloadable PDF tax invoices here.</div>
+                </div>
+              )}
             </div>
-          ) : hasMFA ? (
-            // MFA is active
-            <div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '16px',
-                background: 'var(--green-bg)',
-                border: '1px solid var(--green-border)',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: 16
-              }}>
-                <ShieldCheck size={20} color="var(--green)" />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--green)' }}>
-                    MFA is Active
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    Your account is protected with two-factor authentication
-                  </div>
+          )}
+        </div>
+      </div>
+
+      {/* Password & Credentials Section (Default Collapsed) */}
+      <div className="security-section">
+        <div className="card" style={{ transition: 'all 0.2s' }}>
+          <div
+            className="security-section-header"
+            onClick={() => setShowPasswordSection(!showPasswordSection)}
+            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showPasswordSection ? 16 : 0, justifyContent: 'space-between' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="security-section-icon indigo" style={{ background: 'var(--indigo-bg)', color: 'var(--indigo)' }}>
+                <KeyRound size={20} />
+              </div>
+              <div>
+                <div className="security-section-title">Password &amp; Account Credentials</div>
+                <div className="security-section-desc">
+                  {isGoogleOnly
+                    ? 'Your account was created via Google OAuth. Set a password to enable direct email login.'
+                    : 'Manage or update your account password for secure login'
+                  }
                 </div>
               </div>
+            </div>
 
-              {verifiedFactors.map(factor => (
-                <div key={factor.id} className="security-item">
-                  <div className="security-item-info">
-                    <div className="security-item-icon" style={{ background: 'var(--indigo-bg)', color: 'var(--indigo)' }}>
-                      <Smartphone size={18} />
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
+              onClick={(e) => { e.stopPropagation(); setShowPasswordSection(!showPasswordSection); }}
+            >
+              {showPasswordSection ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
+            </button>
+          </div>
+
+          {showPasswordSection && (
+            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
+              {passMsg && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 14px', background: '#ecfdf5', border: '1px solid #a7f3d0',
+                  borderRadius: 'var(--radius-md)', fontSize: '0.75rem', color: '#047857',
+                  marginBottom: 16
+                }}>
+                  <CheckCircle2 size={16} />
+                  <span>{passMsg}</span>
+                </div>
+              )}
+
+              {passErr && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca',
+                  borderRadius: 'var(--radius-md)', fontSize: '0.75rem', color: '#dc2626',
+                  marginBottom: 16
+                }}>
+                  <AlertCircle size={16} />
+                  <span>{passErr}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                      {isGoogleOnly ? 'Create New Password' : 'New Password'}
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPass ? 'text' : 'password'}
+                        className="form-input"
+                        placeholder="Enter password (min 6 chars)"
+                        value={newPass}
+                        onChange={e => setNewPass(e.target.value)}
+                        style={{ paddingRight: 36, width: '100%' }}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        style={{
+                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
+                          padding: 2
+                        }}
+                      >
+                        {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
-                    <div className="security-item-text">
-                      <h4>{factor.friendly_name || 'Authenticator App'}</h4>
-                      <p>Added {new Date(factor.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</p>
-                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                      Confirm Password
+                    </label>
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Re-enter password"
+                      value={confirmPass}
+                      onChange={e => setConfirmPass(e.target.value)}
+                      style={{ width: '100%' }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Lock size={12} /> Encrypted using Supabase Argon2 / bcrypt hashing
                   </div>
                   <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => setDeleteConfirm({ id: factor.id, name: factor.friendly_name || 'Authenticator App' })}
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={passLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                   >
-                    <Trash2 size={14} /> Remove
+                    <KeyRound size={14} />
+                    {passLoading ? 'Saving...' : (isGoogleOnly ? 'Set Password & Enable Email Login' : 'Update Password')}
                   </button>
                 </div>
-              ))}
-            </div>
-          ) : (
-            // MFA not set up
-            <div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '16px',
-                background: 'var(--amber-bg)',
-                border: '1px solid var(--amber-border)',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: 16
-              }}>
-                <ShieldAlert size={20} color="var(--amber)" />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--amber)' }}>
-                    MFA Not Enabled
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    Enable MFA to protect your financial data with a second layer of security
-                  </div>
-                </div>
-              </div>
-
-              <button className="btn btn-primary" onClick={handleStartEnroll}>
-                <Shield size={16} /> Enable Two-Factor Authentication
-              </button>
+              </form>
             </div>
           )}
         </div>
       </div>
 
-      {/* Account Info Section */}
+      {/* Referral Section (Default Collapsed) */}
       <div className="security-section">
-        <div className="card">
-          <div className="security-section-header">
-            <div className="security-section-icon blue">
-              <User size={20} />
+        <ReferralCard defaultCollapsed={true} />
+      </div>
+
+      {/* MFA Section (Default Collapsed) */}
+      <div className="security-section">
+        <div className="card" style={{ transition: 'all 0.2s' }}>
+          <div
+            className="security-section-header"
+            onClick={() => setShowMfaSection(!showMfaSection)}
+            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showMfaSection ? 16 : 0, justifyContent: 'space-between' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="security-section-icon indigo">
+                <Shield size={20} />
+              </div>
+              <div>
+                <div className="security-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>Two-Factor Authentication</span>
+                  {hasMFA && (
+                    <span className="badge badge-green" style={{ fontSize: '0.62rem', padding: '1px 8px' }}>
+                      Active
+                    </span>
+                  )}
+                </div>
+                <div className="security-section-desc">Add an extra layer of security with a TOTP authenticator app</div>
+              </div>
             </div>
-            <div>
-              <div className="security-section-title">Account Information</div>
-              <div className="security-section-desc">Your sign-in details and session info</div>
-            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
+              onClick={(e) => { e.stopPropagation(); setShowMfaSection(!showMfaSection); }}
+            >
+              {showMfaSection ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
+            </button>
           </div>
 
-          <div className="security-item">
-            <div className="security-item-info">
-              <div className="security-item-icon" style={{ background: 'var(--blue-bg)', color: 'var(--blue)' }}>
-                <Mail size={18} />
+          {showMfaSection && (
+            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
+              {loading ? (
+                <div style={{ padding: '20px 0' }}>
+                  <div className="skeleton" style={{ height: 60, width: '100%' }} />
+                </div>
+              ) : hasMFA ? (
+                // MFA is active
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '16px',
+                    background: 'var(--green-bg)',
+                    border: '1px solid var(--green-border)',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 16
+                  }}>
+                    <ShieldCheck size={20} color="var(--green)" />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--green)' }}>
+                        MFA is Active
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        Your account is protected with two-factor authentication
+                      </div>
+                    </div>
+                  </div>
+
+                  {verifiedFactors.map(factor => (
+                    <div key={factor.id} className="security-item">
+                      <div className="security-item-info">
+                        <div className="security-item-icon" style={{ background: 'var(--indigo-bg)', color: 'var(--indigo)' }}>
+                          <Smartphone size={18} />
+                        </div>
+                        <div className="security-item-text">
+                          <h4>{factor.friendly_name || 'Authenticator App'}</h4>
+                          <p>Added {new Date(factor.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</p>
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => setDeleteConfirm({ id: factor.id, name: factor.friendly_name || 'Authenticator App' })}
+                      >
+                        <Trash2 size={14} /> Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                // MFA not set up
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '16px',
+                    background: 'var(--amber-bg)',
+                    border: '1px solid var(--amber-border)',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 16
+                  }}>
+                    <ShieldAlert size={20} color="var(--amber)" />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--amber)' }}>
+                        MFA Not Enabled
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        Enable MFA to protect your financial data with a second layer of security
+                      </div>
+                    </div>
+                  </div>
+
+                  <button className="btn btn-primary" onClick={handleStartEnroll}>
+                    <Shield size={16} /> Enable Two-Factor Authentication
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Account Info Section (Default Collapsed) */}
+      <div className="security-section">
+        <div className="card" style={{ transition: 'all 0.2s' }}>
+          <div
+            className="security-section-header"
+            onClick={() => setShowAccountInfo(!showAccountInfo)}
+            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showAccountInfo ? 16 : 0, justifyContent: 'space-between' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="security-section-icon blue">
+                <User size={20} />
               </div>
-              <div className="security-item-text">
-                <h4>Email</h4>
-                <p>{user?.email || 'Not available'}</p>
+              <div>
+                <div className="security-section-title">Account Information</div>
+                <div className="security-section-desc">Your sign-in details and session info</div>
               </div>
             </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
+              onClick={(e) => { e.stopPropagation(); setShowAccountInfo(!showAccountInfo); }}
+            >
+              {showAccountInfo ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
+            </button>
           </div>
 
-          <div className="security-item">
-            <div className="security-item-info">
-              <div className="security-item-icon" style={{ background: 'var(--purple-bg)', color: 'var(--purple)' }}>
-                <KeyRound size={18} />
+          {showAccountInfo && (
+            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
+              <div className="security-item">
+                <div className="security-item-info">
+                  <div className="security-item-icon" style={{ background: 'var(--blue-bg)', color: 'var(--blue)' }}>
+                    <Mail size={18} />
+                  </div>
+                  <div className="security-item-text">
+                    <h4>Email</h4>
+                    <p>{user?.email || 'Not available'}</p>
+                  </div>
+                </div>
               </div>
-              <div className="security-item-text">
-                <h4>Login Method</h4>
-                <p style={{ textTransform: 'capitalize' }}>{loginProvider}</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="security-item">
-            <div className="security-item-info">
-              <div className="security-item-icon" style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
-                <Clock size={18} />
+              <div className="security-item">
+                <div className="security-item-info">
+                  <div className="security-item-icon" style={{ background: 'var(--purple-bg)', color: 'var(--purple)' }}>
+                    <KeyRound size={18} />
+                  </div>
+                  <div className="security-item-text">
+                    <h4>Login Method</h4>
+                    <p style={{ textTransform: 'capitalize' }}>{loginProvider}</p>
+                  </div>
+                </div>
               </div>
-              <div className="security-item-text">
-                <h4>Last Sign In</h4>
-                <p>{lastSignIn}</p>
+
+              <div className="security-item">
+                <div className="security-item-info">
+                  <div className="security-item-icon" style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
+                    <Clock size={18} />
+                  </div>
+                  <div className="security-item-text">
+                    <h4>Last Sign In</h4>
+                    <p>{lastSignIn}</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

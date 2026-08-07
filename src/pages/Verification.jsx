@@ -4,6 +4,11 @@ import { upsertMonthlySummary, createTransaction, deleteTransaction } from '../l
 import { formatCurrency, getAmountClass } from '../lib/utils'
 import { analytics } from '../lib/analytics'
 import { VerificationSkeleton } from '../components/Skeletons'
+import InfoButton from '../components/InfoButton'
+import {
+  ShieldCheck, ShieldAlert, Save, AlertTriangle,
+  CheckCircle2, XCircle, ArrowRight
+} from 'lucide-react'
 
 export default function Verification() {
   const { currentMonth, triggerRefresh, dashboardData: data, initialLoading: loading } = useDataStore()

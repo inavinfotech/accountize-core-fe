@@ -22,9 +22,19 @@ const PRO_LIMITS = {
 
 export function SubscriptionProvider({ children }) {
   const { user } = useAuth()
-  const [subscription, setSubscription] = useState(null)
+  // Optimistic free-tier defaults — app renders immediately, subscription loads in background
+  const [subscription, setSubscription] = useState({
+    plan: 'free',
+    status: 'active',
+    isPro: false,
+    isTrial: false,
+    trialDaysLeft: 0,
+    limits: FREE_LIMITS,
+    billingCycle: null,
+    currentPeriodEnd: null,
+  })
   const [receipts, setReceipts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   const fetchReceipts = useCallback(async () => {
     if (!user) {

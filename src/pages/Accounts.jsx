@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
-import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction, isDefaultAccount, getActiveSharedLinksCount } from '../lib/db'
+import { useDataStore } from '../lib/useDataStore.jsx'
+import { createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, verifyTransaction, rejectTransaction, isDefaultAccount, getActiveSharedLinksCount } from '../lib/db'
 import { useSubscription } from '../context/SubscriptionContext'
 import UpgradeModal from '../components/UpgradeModal'
 import { formatCurrency, getAmountClass, getInitials, formatDate, formatTransactionCreatedAt } from '../lib/utils'
@@ -17,10 +17,8 @@ import {
 
 export default function Accounts() {
   const [searchParams] = useSearchParams()
-  const { currentMonth, refreshKey, triggerRefresh } = useApp()
+  const { currentMonth, triggerRefresh, balances: accounts, linkedAccounts, sharedLinks: storeSharedLinks, setSharedLinks: setStoreSharedLinks, initialLoading: loading, invalidateAndRefresh } = useDataStore()
   const { limits, isPro, isTrial } = useSubscription()
-  const [accounts, setAccounts] = useState([])
-  const [loading, setLoading] = useState(true)
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [showAddTransaction, setShowAddTransaction] = useState(null)
   const [expandedAccount, setExpandedAccount] = useState(null)
@@ -38,8 +36,9 @@ export default function Accounts() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [sharingAccount, setSharingAccount] = useState(null) // { accountId, token, loading, copied }
-  const [sharedLinks, setSharedLinks] = useState({}) // { accountId: token }
-  const [linkedAccounts, setLinkedAccounts] = useState([])
+  // Use store-level shared links — local copy for UI state
+  const sharedLinks = storeSharedLinks
+  const setSharedLinks = setStoreSharedLinks
 
   const [newAccount, setNewAccount] = useState({ name: '', type: 'receivable', subtype: 'other' })
   const [newTxn, setNewTxn] = useState({ amount: '', description: '', date: '' })
@@ -63,47 +62,6 @@ export default function Accounts() {
       setSyncOnlineAccountId(onlineAccounts[0].id)
     }
   }, [onlineAccounts, syncOnlineAccountId])
-
-  const [prevMonth, setPrevMonth] = useState(currentMonth)
-
-  useEffect(() => {
-    const isMonthChange = currentMonth !== prevMonth
-    setPrevMonth(currentMonth)
-    loadAccounts(!isMonthChange && accounts.length > 0)
-  }, [currentMonth, refreshKey])
-
-  async function loadAccounts(silent = false) {
-    try {
-      if (!silent) setLoading(true)
-      const data = await getAccountBalances(currentMonth)
-      setAccounts(data)
-
-      // Load linked accounts
-      try {
-        const linked = await getLinkedAccounts()
-        setLinkedAccounts(linked)
-      } catch (err) {
-        console.error('Failed to load linked accounts:', err)
-      }
-
-      // Load shared links for receivable accounts
-      const receivables = data.filter(a => a.type === 'receivable')
-      const links = {}
-      for (const acc of receivables) {
-        try {
-          const link = await getSharedLink(acc.id)
-          if (link) links[acc.id] = link.token
-        } catch (err) {
-          // ignore
-        }
-      }
-      setSharedLinks(links)
-    } catch (err) {
-      console.error('Failed to load accounts:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function handleAddAccount(e) {
     e.preventDefault()

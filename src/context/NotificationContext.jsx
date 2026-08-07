@@ -89,7 +89,12 @@ export function NotificationProvider({ children }) {
         console.error('Failed to load notification metadata and pending transactions:', err)
       }
     }
-    loadMetadataAndPending()
+    // Fetch accounts, links, and existing pending transactions
+    // Deferred to avoid blocking initial page paint (3 API calls)
+    const deferTimer = setTimeout(() => {
+      loadMetadataAndPending()
+    }, 500)
+    return () => { clearTimeout(deferTimer) }
   }, [user])
 
   // Save to localStorage when notifications change

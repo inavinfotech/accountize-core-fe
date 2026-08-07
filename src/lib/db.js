@@ -2,13 +2,44 @@ import { supabase } from './supabase'
 import { analytics } from './analytics'
 
 let activeMonthsCache = null
+let defaultAccountsChecked = false
 
 // ============ CACHE ============
 const dbCache = new Map()
 
+/**
+ * Targeted cache invalidation — only clears entries matching the given scope prefix.
+ * Also clears derived caches that depend on the invalidated scope.
+ * If no scope given, clears everything (full reset).
+ */
+export function invalidateCache(scope) {
+  if (!scope) {
+    dbCache.clear()
+    activeMonthsCache = null
+    return
+  }
+  for (const key of dbCache.keys()) {
+    if (key.startsWith(scope)) dbCache.delete(key)
+  }
+  // Clear derived caches that depend on accounts or transactions
+  if (scope === 'accounts' || scope === 'transactions') {
+    for (const key of dbCache.keys()) {
+      if (key.startsWith('balances_') || key.startsWith('dashboard_')) {
+        dbCache.delete(key)
+      }
+    }
+  }
+  if (scope === 'expenses') {
+    for (const key of dbCache.keys()) {
+      if (key.startsWith('dashboard_')) dbCache.delete(key)
+    }
+  }
+}
+
+/** Full cache clear — kept for backward compatibility and logout */
 export function clearDbCache() {
-  dbCache.clear()
-  activeMonthsCache = null
+  defaultAccountsChecked = false
+  invalidateCache()
 }
 
 // ============ ACCOUNTS ============
@@ -31,7 +62,7 @@ export async function getAccounts() {
 }
 
 export async function createAccount(account) {
-  clearDbCache()
+  invalidateCache('accounts')
   const { data, error } = await supabase
     .from('accounts')
     .insert(account)
@@ -45,7 +76,7 @@ export async function createAccount(account) {
 }
 
 export async function updateAccount(id, updates) {
-  clearDbCache()
+  invalidateCache('accounts')
   const { data, error } = await supabase
     .from('accounts')
     .update(updates)
@@ -73,7 +104,7 @@ export async function deleteAccount(id) {
   if (acc && isDefaultAccount(acc)) {
     throw new Error(`Default system account "${acc.name}" cannot be deleted as it is required for automated balance tracking.`)
   }
-  clearDbCache()
+  invalidateCache('accounts')
   const { error } = await supabase
     .from('accounts')
     .delete()
@@ -132,7 +163,7 @@ export async function getTransactionsByAccount(accountId, monthYear) {
 }
 
 export async function createTransaction(transaction) {
-  clearDbCache()
+  invalidateCache('transactions')
   const { data, error } = await supabase
     .from('transactions')
     .insert(transaction)
@@ -143,7 +174,7 @@ export async function createTransaction(transaction) {
 }
 
 export async function deleteTransaction(id) {
-  clearDbCache()
+  invalidateCache('transactions')
   const { error } = await supabase
     .from('transactions')
     .delete()
@@ -152,7 +183,7 @@ export async function deleteTransaction(id) {
 }
 
 export async function updateTransaction(id, updates) {
-  clearDbCache()
+  invalidateCache('transactions')
   const { data, error } = await supabase
     .from('transactions')
     .update(updates)
@@ -190,7 +221,7 @@ export async function getExpenses(monthYear) {
 }
 
 export async function createExpense(expense) {
-  clearDbCache()
+  invalidateCache('expenses')
   const { data, error } = await supabase
     .from('expenses')
     .insert(expense)
@@ -201,7 +232,7 @@ export async function createExpense(expense) {
 }
 
 export async function createExpenses(expensesList) {
-  clearDbCache()
+  invalidateCache('expenses')
   const now = new Date()
   const listWithTime = expensesList.map((exp, idx) => ({
     ...exp,
@@ -216,7 +247,7 @@ export async function createExpenses(expensesList) {
 }
 
 export async function deleteExpense(id) {
-  clearDbCache()
+  invalidateCache('expenses')
   const { error } = await supabase
     .from('expenses')
     .delete()
@@ -225,7 +256,7 @@ export async function deleteExpense(id) {
 }
 
 export async function updateExpense(id, updates) {
-  clearDbCache()
+  invalidateCache('expenses')
   const { data, error } = await supabase
     .from('expenses')
     .update(updates)
@@ -257,7 +288,7 @@ export async function getMonthlySummary(monthYear) {
 }
 
 export async function upsertMonthlySummary(summary) {
-  clearDbCache()
+  invalidateCache('summary')
   const { data: { user } } = await supabase.auth.getUser()
   const existing = await getMonthlySummary(summary.month_year).catch(() => null)
 
@@ -279,6 +310,7 @@ export async function upsertMonthlySummary(summary) {
 // ============ COMPUTED HELPERS ============
 
 export async function ensureDefaultAccounts() {
+  if (defaultAccountsChecked) return false
   try {
     const { data: accounts, error } = await supabase
       .from('accounts')
@@ -295,11 +327,13 @@ export async function ensureDefaultAccounts() {
     if (!hasOnline) missing.push({ name: 'Online Money', type: 'self', subtype: 'online' })
     if (!hasExpense) missing.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
 
+    defaultAccountsChecked = true
+
     if (missing.length > 0) {
       for (const item of missing) {
         await supabase.from('accounts').insert(item)
       }
-      clearDbCache()
+      invalidateCache('accounts')
       return true
     }
   } catch (err) {
@@ -309,7 +343,6 @@ export async function ensureDefaultAccounts() {
 }
 
 export async function getAccountBalances(monthYear) {
-  await ensureDefaultAccounts()
   const cacheKey = `balances_${monthYear}`
   if (dbCache.has(cacheKey)) return dbCache.get(cacheKey)
 
@@ -350,20 +383,19 @@ export async function getDashboardData(monthYear) {
   if (dbCache.has(cacheKey)) return dbCache.get(cacheKey)
 
   const promise = (async () => {
-    const balances = await getAccountBalances(monthYear)
-    const expenses = await getExpenses(monthYear)
-    
-    // Call server-side function to get total expenses up to this month
-    const { data: totalExpensesUpTo, error: expErr } = await supabase
-      .rpc('get_total_expenses_up_to', { month_year_param: monthYear })
-    if (expErr) throw expErr
+    // Run all independent queries in parallel instead of serial waterfall
+    const [balances, expenses, totalExpensesUpToResult, onlineBalanceResult, summary] = await Promise.all([
+      getAccountBalances(monthYear),
+      getExpenses(monthYear),
+      supabase.rpc('get_total_expenses_up_to', { month_year_param: monthYear }),
+      supabase.rpc('get_online_balance_up_to', { month_year_param: monthYear }),
+      getMonthlySummary(monthYear),
+    ])
 
-    // Call server-side function to get carrying online balance up to this month (efficient carryover)
-    const { data: onlineBalance, error: onlineErr } = await supabase
-      .rpc('get_online_balance_up_to', { month_year_param: monthYear })
-    if (onlineErr) throw onlineErr
-    
-    const summary = await getMonthlySummary(monthYear)
+    if (totalExpensesUpToResult.error) throw totalExpensesUpToResult.error
+    if (onlineBalanceResult.error) throw onlineBalanceResult.error
+    const totalExpensesUpTo = totalExpensesUpToResult.data
+    const onlineBalance = onlineBalanceResult.data
     
     const receivables = balances.filter(a => a.type === 'receivable')
     const payables = balances.filter(a => a.type === 'payable')
@@ -508,7 +540,7 @@ export async function getSetting(key, defaultValue = '') {
 }
 
 export async function setSetting(key, value) {
-  clearDbCache()
+  invalidateCache('setting')
   try {
     const { data: { user }, error: userErr } = await supabase.auth.getUser()
     if (userErr || !user) throw new Error('User not authenticated')
@@ -549,7 +581,7 @@ export async function getSharedLink(accountId) {
 }
 
 export async function createSharedLink(accountId) {
-  clearDbCache()
+  invalidateCache('shared_link')
   // Check if one already exists
   const existing = await getSharedLink(accountId)
   if (existing) return existing
@@ -567,12 +599,29 @@ export async function createSharedLink(accountId) {
 }
 
 export async function deleteSharedLink(accountId) {
-  clearDbCache()
+  invalidateCache('shared_link')
   const { error } = await supabase
     .from('shared_links')
     .delete()
     .eq('account_id', accountId)
   if (error) throw error
+}
+
+/** Batch fetch all shared links in one query (replaces N+1 per-account fetches) */
+export async function getAllSharedLinks() {
+  const cacheKey = 'shared_links_all'
+  if (dbCache.has(cacheKey)) return dbCache.get(cacheKey)
+
+  const promise = (async () => {
+    const { data, error } = await supabase
+      .from('shared_links')
+      .select('*')
+    if (error) throw error
+    return data || []
+  })()
+
+  dbCache.set(cacheKey, promise)
+  return promise
 }
 
 export async function getSharedLedger(token) {
@@ -602,7 +651,8 @@ export async function getSharedLedger(token) {
 // ============ COLLABORATIVE / LINKED LEDGERS ============
 
 export async function linkSharedAccount(token, payableAccountId) {
-  clearDbCache()
+  invalidateCache('linked')
+  invalidateCache('accounts')
   const { data, error } = await supabase
     .rpc('link_shared_ledger', { link_token: token, user_payable_account_id: payableAccountId })
   if (error) throw error
@@ -631,15 +681,23 @@ export async function getLinkedAccount(accountId) {
 }
 
 export async function getLinkedAccounts() {
-  const { data, error } = await supabase
-    .from('linked_accounts')
-    .select('*')
-  if (error) throw error
-  return data
+  const cacheKey = 'linked_accounts_all'
+  if (dbCache.has(cacheKey)) return dbCache.get(cacheKey)
+
+  const promise = (async () => {
+    const { data, error } = await supabase
+      .from('linked_accounts')
+      .select('*')
+    if (error) throw error
+    return data
+  })()
+
+  dbCache.set(cacheKey, promise)
+  return promise
 }
 
 export async function verifyTransaction(transactionId) {
-  clearDbCache()
+  invalidateCache('transactions')
   const { data, error } = await supabase
     .from('transactions')
     .update({ verification_status: 'completed' })
@@ -651,7 +709,7 @@ export async function verifyTransaction(transactionId) {
 }
 
 export async function rejectTransaction(transactionId) {
-  clearDbCache()
+  invalidateCache('transactions')
   const { data, error } = await supabase
     .from('transactions')
     .update({ verification_status: 'rejected' })

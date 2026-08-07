@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
-import { getTransactions, getAccounts, updateTransaction, deleteTransaction, verifyTransaction, rejectTransaction, getLinkedAccounts } from '../lib/db'
+import { useDataStore } from '../lib/useDataStore.jsx'
+import { updateTransaction, deleteTransaction, verifyTransaction, rejectTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass, formatDate, formatTransactionCreatedAt } from '../lib/utils'
 import { TransactionsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
@@ -11,11 +11,10 @@ import {
 } from 'lucide-react'
 
 export default function Transactions() {
-  const { triggerRefresh } = useApp()
+  const { triggerRefresh, allTransactions, allAccounts, linkedAccounts, fetchAllTransactions } = useDataStore()
   const [searchParams] = useSearchParams()
   const [transactions, setTransactions] = useState([])
   const [accounts, setAccounts] = useState([])
-  const [linkedAccounts, setLinkedAccounts] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Filters State
@@ -33,6 +32,12 @@ export default function Transactions() {
     loadData()
   }, [])
 
+  // Update from store when lazy data arrives
+  useEffect(() => {
+    if (allTransactions) setTransactions(allTransactions)
+    if (allAccounts) setAccounts(allAccounts)
+  }, [allTransactions, allAccounts])
+
   useEffect(() => {
     const filter = searchParams.get('verification') || 'all'
     setVerificationFilter(filter)
@@ -41,15 +46,7 @@ export default function Transactions() {
   async function loadData() {
     try {
       setLoading(true)
-      // Fetch all transactions, accounts, and linked accounts
-      const [txs, accs, linked] = await Promise.all([
-        getTransactions(),
-        getAccounts(),
-        getLinkedAccounts()
-      ])
-      setTransactions(txs)
-      setAccounts(accs)
-      setLinkedAccounts(linked)
+      await fetchAllTransactions()
     } catch (err) {
       console.error('Failed to load transactions list:', err)
     } finally {

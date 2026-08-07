@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useApp } from '../context/AppContext'
+import { useDataStore } from '../lib/useDataStore.jsx'
 import { useAuth } from '../context/AuthContext'
-import { getExpenses, deleteExpense, createExpenses, getSetting, setSetting, updateExpense, getAccountBalances, createTransaction, deleteTransaction } from '../lib/db'
+import { deleteExpense, createExpenses, setSetting, updateExpense, createTransaction, deleteTransaction } from '../lib/db'
 import { formatCurrency, formatDate, getDaysInMonth } from '../lib/utils'
 import { exportToPDF } from '../lib/pdfExport'
 import { ExpensesSkeleton } from '../components/Skeletons'
@@ -22,9 +22,7 @@ import {
 export default function Expenses() {
   const { isPro, limits } = useSubscription()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const { currentMonth, refreshKey, triggerRefresh } = useApp()
-  const [expenses, setExpenses] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { currentMonth, triggerRefresh, expenses, balances, budgetPerDay: storeBudget, initialLoading: loading } = useDataStore()
   const [showAdd, setShowAdd] = useState(false)
   const [newExpenses, setNewExpenses] = useState([])
   const [rearrangeMode, setRearrangeMode] = useState(false)
@@ -33,7 +31,6 @@ export default function Expenses() {
   const [draggedId, setDraggedId] = useState(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [visibleDatesCount, setVisibleDatesCount] = useState(10)
-  const [expenseAccounts, setExpenseAccounts] = useState([])
   const [settlementTxn, setSettlementTxn] = useState(null)
   const [settleAmount, setSettleAmount] = useState('')
   const [settleAccountId, setSettleAccountId] = useState('')
@@ -44,6 +41,38 @@ export default function Expenses() {
   const pendingUpdatesRef = useRef({})
   const debounceTimerRef = useRef(null)
   const draggedIdRef = useRef(null)
+
+  // Derive expense accounts and settlement from store data
+  const expenseAccounts = useMemo(() => {
+    return balances.filter(a => a.subtype === 'expense')
+  }, [balances])
+
+  // Sync budget from store
+  useEffect(() => {
+    setEstimatePerDay(storeBudget)
+  }, [storeBudget])
+
+  // Find settlement transaction
+  useEffect(() => {
+    let found = null
+    for (const acc of expenseAccounts) {
+      const t = acc.transactions?.find(tx => tx.description === 'Settle Monthly Expenses')
+      if (t) {
+        found = { ...t, accountName: acc.name }
+        break
+      }
+    }
+    setSettlementTxn(found)
+  }, [expenseAccounts])
+
+  // Reset visible dates on month change
+  const prevMonthRef = useRef(currentMonth)
+  useEffect(() => {
+    if (currentMonth !== prevMonthRef.current) {
+      setVisibleDatesCount(10)
+      prevMonthRef.current = currentMonth
+    }
+  }, [currentMonth])
 
   const getDefaultDate = () => {
     const today = new Date()
@@ -103,17 +132,6 @@ export default function Expenses() {
     }
   }
 
-  const [prevMonth, setPrevMonth] = useState(currentMonth)
-
-  useEffect(() => {
-    const isMonthChange = currentMonth !== prevMonth
-    setPrevMonth(currentMonth)
-    if (isMonthChange) {
-      setVisibleDatesCount(10)
-    }
-    loadExpenses(!isMonthChange && expenses.length > 0)
-  }, [currentMonth, refreshKey])
-
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
@@ -129,36 +147,6 @@ export default function Expenses() {
       }
     }
   }, [])
-
-  async function loadExpenses(silent = false) {
-    try {
-      if (!silent) setLoading(true)
-      const data = await getExpenses(currentMonth)
-      setExpenses(data)
-      const budget = await getSetting('target_per_day_budget', '0')
-      setEstimatePerDay(budget)
-
-      // Load expense accounts to check for settlement
-      const accountsData = await getAccountBalances(currentMonth)
-      const expAccs = accountsData.filter(a => a.subtype === 'expense')
-      setExpenseAccounts(expAccs)
-
-      // Find if any expense account has a settlement transaction for this month
-      let foundSettlement = null
-      for (const acc of expAccs) {
-        const t = acc.transactions?.find(tx => tx.description === 'Settle Monthly Expenses')
-        if (t) {
-          foundSettlement = { ...t, accountName: acc.name }
-          break
-        }
-      }
-      setSettlementTxn(foundSettlement)
-    } catch (err) {
-      console.error('Failed to load expenses:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const getSettleDate = () => {
     const today = new Date()

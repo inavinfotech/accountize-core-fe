@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
   Calendar, LogOut, Settings as SettingsIcon, Ban
 } from 'lucide-react'
-import { AppProvider, useApp } from './context/AppContext'
+import { DataStoreProvider, useApp } from './lib/useDataStore.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext'
@@ -268,7 +268,7 @@ export default function App() {
       <AuthProvider>
         <NotificationProvider>
         <SubscriptionProvider>
-          <AppProvider>
+          <DataStoreProvider>
             <Suspense fallback={
               <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
                 <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
@@ -288,7 +288,7 @@ export default function App() {
                 />
               </Routes>
             </Suspense>
-          </AppProvider>
+          </DataStoreProvider>
         </SubscriptionProvider>
         </NotificationProvider>
       </AuthProvider>

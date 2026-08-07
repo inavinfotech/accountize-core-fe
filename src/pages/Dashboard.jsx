@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
+import { useDataStore } from '../lib/useDataStore.jsx'
 import { useAuth } from '../context/AuthContext'
-import { getDashboardData, createTransaction, getTransactions, createAccount } from '../lib/db'
+import { createTransaction, createAccount } from '../lib/db'
 import { formatCurrency, getAmountClass, getDaysInMonth } from '../lib/utils'
 import { analytics } from '../lib/analytics'
 import { exportToPDF } from '../lib/pdfExport'
@@ -26,52 +26,37 @@ export default function Dashboard() {
   const { isPro, limits } = useSubscription()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const navigate = useNavigate()
-  const { currentMonth, refreshKey, triggerRefresh } = useApp()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { currentMonth, triggerRefresh, dashboardData: data, initialLoading: loading, invalidateAndRefresh } = useDataStore()
   const [pendingTxnCount, setPendingTxnCount] = useState(0)
-  const [prevMonth, setPrevMonth] = useState(currentMonth)
 
+  // Auto-create missing default accounts in background (from store data)
   useEffect(() => {
-    const isMonthChange = currentMonth !== prevMonth
-    setPrevMonth(currentMonth)
-    loadData(!isMonthChange && data !== null)
-  }, [currentMonth, refreshKey])
-
-  async function loadData(silent = false) {
-    try {
-      if (!silent) setLoading(true)
-      let d = await getDashboardData(currentMonth)
-
-      // Silently auto-create missing default accounts in background
-      if (d?.missingDefaults && d.missingDefaults.length > 0) {
-        try {
-          for (const item of d.missingDefaults) {
-            await createAccount(item)
-          }
-          // Fetch updated dashboard data with newly created defaults
-          d = await getDashboardData(currentMonth)
-        } catch (err) {
-          console.error('Failed to auto-create missing default accounts:', err)
-        }
-      }
-
-      setData(d)
-
-      // Fetch pending transactions
+    if (!data?.missingDefaults?.length) return
+    let cancelled = false
+    ;(async () => {
       try {
-        const txs = await getTransactions()
-        const pending = txs.filter(t => t.is_shared && t.verification_status === 'pending')
-        setPendingTxnCount(pending.length)
+        for (const item of data.missingDefaults) {
+          await createAccount(item)
+        }
+        if (!cancelled) await invalidateAndRefresh('accounts')
       } catch (err) {
-        console.error('Failed to fetch pending transactions:', err)
+        console.error('Failed to auto-create missing default accounts:', err)
       }
-    } catch (err) {
-      console.error('Failed to load dashboard:', err)
-    } finally {
-      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [data?.missingDefaults?.length])
+
+  // Count pending transactions from the store's balances data
+  useEffect(() => {
+    if (!data?.balances) return
+    let count = 0
+    for (const acc of data.balances) {
+      if (acc.transactions) {
+        count += acc.transactions.filter(t => t.is_shared && t.verification_status === 'pending').length
+      }
     }
-  }
+    setPendingTxnCount(count)
+  }, [data])
 
   const daysInMonth = getDaysInMonth(currentMonth)
 
@@ -105,10 +90,11 @@ export default function Dashboard() {
     if (!isOnlineVerified) fault += Math.abs(data.onlineBalance - manualOnlineVal)
     if (!isCashVerified) fault += Math.abs(data.cashBalance - manualCashVal)
 
-    // Pie data for receivables
+    // Pie data for receivables (sorted highest to lowest)
     const pie = data.receivables
       .filter(a => a.balance > 0)
       .map(a => ({ name: a.name, value: a.balance }))
+      .sort((a, b) => b.value - a.value)
 
     return {
       estimatedMonthly: est,

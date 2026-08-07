@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useApp } from '../context/AppContext'
-import { getDashboardData, upsertMonthlySummary, createTransaction, deleteTransaction } from '../lib/db'
+import { useDataStore } from '../lib/useDataStore.jsx'
+import { upsertMonthlySummary, createTransaction, deleteTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass } from '../lib/utils'
 import { VerificationSkeleton } from '../components/Skeletons'
 import InfoButton from '../components/InfoButton'
@@ -10,25 +10,31 @@ import {
 } from 'lucide-react'
 
 export default function Verification() {
-  const { currentMonth, refreshKey, triggerRefresh } = useApp()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { currentMonth, triggerRefresh, dashboardData: data, initialLoading: loading } = useDataStore()
   const [manualBalance, setManualBalance] = useState('')
   const [manualCash, setManualCash] = useState('')
   const [manualOnline, setManualOnline] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const [prevMonth, setPrevMonth] = useState(currentMonth)
-
   const [settleAmount, setSettleAmount] = useState('')
   const [settleAccountId, setSettleAccountId] = useState('')
   const [userEditedAmount, setUserEditedAmount] = useState(false)
 
+  // Populate manual balance fields when data arrives
   useEffect(() => {
-    const isMonthChange = currentMonth !== prevMonth
-    setPrevMonth(currentMonth)
-    loadData(!isMonthChange && data !== null)
-  }, [currentMonth, refreshKey])
+    if (!data) return
+    if (data.summary) {
+      const manBal = data.summary.manual_balance || 0
+      const manCash = data.summary.manual_cash || 0
+      setManualBalance(manBal ? manBal.toString() : '')
+      setManualCash(manCash ? manCash.toString() : '')
+      setManualOnline((manBal || manCash) ? (Math.round((manBal - manCash) * 100) / 100).toString() : '')
+    } else {
+      setManualBalance('')
+      setManualCash('')
+      setManualOnline('')
+    }
+  }, [data])
 
   useEffect(() => {
     setUserEditedAmount(false)
@@ -50,29 +56,6 @@ export default function Verification() {
       }
     }
   }, [data, settleAccountId])
-
-  async function loadData(silent = false) {
-    try {
-      if (!silent) setLoading(true)
-      const d = await getDashboardData(currentMonth)
-      setData(d)
-      if (d.summary) {
-        const manBal = d.summary.manual_balance || 0
-        const manCash = d.summary.manual_cash || 0
-        setManualBalance(manBal ? manBal.toString() : '')
-        setManualCash(manCash ? manCash.toString() : '')
-        setManualOnline((manBal || manCash) ? (Math.round((manBal - manCash) * 100) / 100).toString() : '')
-      } else {
-        setManualBalance('')
-        setManualCash('')
-        setManualOnline('')
-      }
-    } catch (err) {
-      console.error('Failed to load:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleCashChange = (val) => {
     setManualCash(val)

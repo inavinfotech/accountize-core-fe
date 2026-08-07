@@ -59,6 +59,11 @@ export default function Expenses() {
     setShowAdd(true)
   }
 
+  const handleOpenAddForDate = (targetDate) => {
+    setNewExpenses([{ date: targetDate, amount: '', description: '' }])
+    setShowAdd(true)
+  }
+
   const handleAddRow = () => {
     const lastDate = newExpenses.length > 0 ? newExpenses[newExpenses.length - 1].date : getDefaultDate()
     setNewExpenses([...newExpenses, { date: lastDate, amount: '', description: '' }])
@@ -442,9 +447,9 @@ export default function Expenses() {
               type="button"
               onClick={() => setShowUpgradeModal(true)}
               title="PDF Export — Pro feature"
-              style={{ opacity: 0.65 }}
+              style={{ opacity: 0.85 }}
             >
-              <Lock size={13} /> <span className="btn-text">PDF Report</span>
+              <Download size={14} /> <span className="btn-text">PDF Report (Pro)</span>
             </button>
           )}
           <button className="btn btn-primary" onClick={handleOpenAdd}>
@@ -931,6 +936,30 @@ export default function Expenses() {
                         )}
                       </div>
                     ))}
+
+                    {!rearrangeMode && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddForDate(date)}
+                        className="transaction-pill"
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.06)',
+                          borderColor: 'rgba(99, 102, 241, 0.25)',
+                          color: 'var(--indigo)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          padding: '4px 8px',
+                          borderStyle: 'dashed'
+                        }}
+                        title={`Add expense for ${formatDate(date)}`}
+                      >
+                        <Plus size={12} /> Add
+                      </button>
+                    )}
                   </div>
                 </div>
               )

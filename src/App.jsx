@@ -1,9 +1,13 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useParams } from 'react-router-dom'
+import {
+  LayoutDashboard, Users, Receipt, ShieldCheck,
+  Calendar, LogOut, Settings as SettingsIcon, Ban
+} from 'lucide-react'
 import { AppProvider, useApp } from './context/AppContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
-import { SubscriptionProvider } from './context/SubscriptionContext'
+import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext'
 import TopRightMenu from './components/TopRightMenu'
 import NotificationBell from './components/NotificationBell'
 import ToastContainer from './components/ToastContainer'
@@ -19,11 +23,6 @@ const Settings = lazy(() => import('./pages/Settings'))
 const Login = lazy(() => import('./pages/Login'))
 const SharedLedger = lazy(() => import('./pages/SharedLedger'))
 const Transactions = lazy(() => import('./pages/Transactions'))
-import {
-  LayoutDashboard, Users, Receipt, ShieldCheck,
-  Calendar, LogOut, Settings as SettingsIcon, Ban
-} from 'lucide-react'
-import { useSubscription } from './context/SubscriptionContext'
 
 function ProtectedRoute({ children }) {
   const { user, isMfaRequired, loading, signOut } = useAuth()
@@ -122,7 +121,7 @@ function BottomNav() {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
-    { path: '/verification', icon: ShieldCheck, label: 'Verify' },
+    { path: '/verification', icon: ShieldCheck, label: 'Audit & Check' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ]
 
@@ -150,7 +149,7 @@ function Sidebar() {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
-    { path: '/verification', icon: ShieldCheck, label: 'Verification' },
+    { path: '/verification', icon: ShieldCheck, label: 'Audit & Check' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ]
 

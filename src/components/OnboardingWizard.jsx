@@ -3,207 +3,141 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../context/AuthContext'
 import { analytics } from '../lib/analytics'
 import {
-  Wallet, Calculator, Share2, ShieldCheck, CheckCircle2,
-  ArrowRight, ArrowLeft, Check, X, Sparkles, TrendingUp,
-  Scale, Lock, Key, Users
+  Receipt, Users, ShieldCheck, ArrowRight, ArrowLeft, Check, X,
+  ArrowUpRight, ArrowDownRight, CheckCircle2
 } from 'lucide-react'
 
-// Custom Graphics Components (SVGs & Interactive Displays)
+// Visual Graphics for 3-Slide Benefit Tour
 
-// Graphic 1: Account Structure & Double-Entry Flow
-function GraphicAccountStructure() {
+// Slide 1 Graphic: Daily Expenses & Quick Tracking
+function GraphicDailyExpenses() {
   return (
     <div style={{
-      background: 'linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,27,75,0.4) 100%)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '16px',
-      padding: '18px 16px',
+      background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--indigo-bg) 100%)',
+      border: '1px solid var(--indigo-border)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '16px',
       marginBottom: '20px',
-      position: 'relative',
-      overflow: 'hidden'
+      boxShadow: 'var(--shadow-sm)'
     }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-        {/* Self Accounts */}
-        <div style={{
-          background: 'rgba(16, 185, 129, 0.08)',
-          border: '1px solid rgba(16, 185, 129, 0.25)',
-          borderRadius: '12px',
-          padding: '12px 10px',
-          textAlign: 'center'
-        }}>
-          <div style={{ color: '#10b981', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>
-            1. Self
-          </div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
-            Cash &amp; Bank
-          </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-            Physical &amp; Online Balances
-          </div>
-        </div>
-
-        {/* Receivables */}
-        <div style={{
-          background: 'rgba(99, 102, 241, 0.08)',
-          border: '1px solid rgba(99, 102, 241, 0.25)',
-          borderRadius: '12px',
-          padding: '12px 10px',
-          textAlign: 'center'
-        }}>
-          <div style={{ color: '#6366f1', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>
-            2. Receivable
-          </div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
-            Money Owed To You
-          </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-            Friends &amp; Client Assets
-          </div>
-        </div>
-
-        {/* Payables */}
-        <div style={{
-          background: 'rgba(245, 158, 11, 0.08)',
-          border: '1px solid rgba(245, 158, 11, 0.25)',
-          borderRadius: '12px',
-          padding: '12px 10px',
-          textAlign: 'center'
-        }}>
-          <div style={{ color: '#f59e0b', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>
-            3. Payable
-          </div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
-            Money You Owe
-          </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-            Vendors &amp; Liabilities
-          </div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Today's Expenses</span>
+        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--red)' }}>-₹230.00</span>
       </div>
 
-      {/* Net Balance Formula Bar */}
-      <div style={{
-        marginTop: '14px',
-        padding: '8px 12px',
-        background: 'var(--bg-primary)',
-        borderRadius: '8px',
-        border: '1px dashed var(--border-color)',
-        fontSize: '0.75rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        color: 'var(--text-secondary)'
-      }}>
-        <span>Net Balance Equation:</span>
-        <span style={{ fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
-          (Self + Receivables) - Payables
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{
+          background: 'var(--red-bg)',
+          border: '1px solid var(--red-border)',
+          color: 'var(--red)',
+          borderRadius: '20px',
+          padding: '6px 12px',
+          fontSize: '0.75rem',
+          fontWeight: 600
+        }}>
+          ₹80.00 · Lunch
+        </div>
+        <div style={{
+          background: 'var(--red-bg)',
+          border: '1px solid var(--red-border)',
+          color: 'var(--red)',
+          borderRadius: '20px',
+          padding: '6px 12px',
+          fontSize: '0.75rem',
+          fontWeight: 600
+        }}>
+          ₹150.00 · Transport
+        </div>
+        <div style={{
+          background: 'var(--indigo-bg)',
+          border: '1px dashed var(--indigo-border)',
+          color: 'var(--indigo)',
+          borderRadius: '20px',
+          padding: '6px 12px',
+          fontSize: '0.75rem',
+          fontWeight: 600
+        }}>
+          + Add Expense
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Slide 2 Graphic: Receivables & Payables
+function GraphicPeersAndLedger() {
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--green-bg) 100%)',
+      border: '1px solid var(--green-border)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '16px',
+      marginBottom: '20px',
+      boxShadow: 'var(--shadow-sm)'
+    }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {/* Receivable */}
+        <div style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px',
+          textAlign: 'left'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <ArrowUpRight size={14} color="var(--green)" />
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Receivable</span>
+          </div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--green)' }}>+₹1,500.00</div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Owed by Friend</div>
+        </div>
+
+        {/* Payable */}
+        <div style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px',
+          textAlign: 'left'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <ArrowDownRight size={14} color="var(--red)" />
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Payable</span>
+          </div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--red)' }}>-₹500.00</div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Owed to Vendor</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Slide 3 Graphic: Monthly Audit & Verification
+function GraphicMonthlyCheck() {
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--blue-bg) 100%)',
+      border: '1px solid var(--blue-border)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '16px',
+      marginBottom: '20px',
+      boxShadow: 'var(--shadow-sm)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>Monthly Audit Snapshot</span>
+        <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.65rem' }}>
+          <CheckCircle2 size={12} /> 100% Balanced
         </span>
       </div>
-    </div>
-  )
-}
 
-// Graphic 2: Monthly Audit Verification Graphic
-function GraphicMonthlyAudit() {
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(16,185,129,0.05) 100%)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '16px',
-      padding: '18px 16px',
-      marginBottom: '20px'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Scale size={18} color="#10b981" />
-          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>Monthly Audit Snapshot</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, textAlign: 'center' }}>
+        <div style={{ background: 'var(--bg-secondary)', padding: '10px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>App Cash Records</div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--green)' }}>₹12,400.00</div>
         </div>
-        <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <CheckCircle2 size={12} /> Zero Fault Verified
-        </span>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, textAlign: 'center' }}>
-        <div style={{ background: 'var(--bg-primary)', padding: '10px 6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Recorded Assets</div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>₹24,500.00</div>
-        </div>
-        <div style={{ background: 'var(--bg-primary)', padding: '10px 6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Actual Physical</div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#3b82f6' }}>₹24,500.00</div>
-        </div>
-        <div style={{ background: 'var(--bg-primary)', padding: '10px 6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Discrepancy Fault</div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>₹0.00</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Graphic 4: Collaborative Peer Link & Dual Verification Graphic
-function GraphicSharedLedger() {
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(99,102,241,0.06) 100%)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '16px',
-      padding: '18px 16px',
-      marginBottom: '20px'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-        {/* User A */}
-        <div style={{ flex: 1, background: 'var(--bg-primary)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>You (Receivable)</div>
-          <div style={{ fontSize: '0.65rem', color: '#10b981', fontWeight: 600 }}>+₹1,500.00</div>
-        </div>
-
-        {/* Sync Arrow */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <Share2 size={16} color="#6366f1" />
-          <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600 }}>Dual Sync</span>
-        </div>
-
-        {/* User B */}
-        <div style={{ flex: 1, background: 'var(--bg-primary)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>Partner (Payable)</div>
-          <div style={{ fontSize: '0.65rem', color: '#ef4444', fontWeight: 600 }}>-₹1,500.00</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-        <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>1. Pending Partner Verification</span>
-        <span>→</span>
-        <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>2. Dual Verified</span>
-      </div>
-    </div>
-  )
-}
-
-// Graphic 5: Security & Sovereignty
-function GraphicSecurity() {
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(99,102,241,0.08) 100%)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '16px',
-      padding: '18px 16px',
-      marginBottom: '20px'
-    }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-        <div style={{ background: 'var(--bg-primary)', padding: 12, borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Lock size={20} color="#6366f1" />
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>2FA Protection</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Authenticator TOTP</div>
-          </div>
-        </div>
-        <div style={{ background: 'var(--bg-primary)', padding: 12, borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Key size={20} color="#f59e0b" />
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>Backup Codes</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Emergency Recovery</div>
-          </div>
+        <div style={{ background: 'var(--bg-secondary)', padding: '10px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Actual Physical Balance</div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--blue)' }}>₹12,400.00</div>
         </div>
       </div>
     </div>
@@ -214,8 +148,6 @@ export default function OnboardingWizard() {
   const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
-  const [demoMath, setDemoMath] = useState('1200 + 450 / 2')
-  const [calculatedValue, setCalculatedValue] = useState(1425)
 
   useEffect(() => {
     if (!user?.id) return
@@ -231,7 +163,7 @@ export default function OnboardingWizard() {
     return () => clearTimeout(timer)
   }, [user?.id])
 
-  // Custom event listener to trigger onboarding anytime from the top 3-dot menu
+  // Custom event listener to trigger onboarding anytime from top menu
   useEffect(() => {
     const handleOpenTrigger = () => {
       setCurrentStep(1)
@@ -255,22 +187,6 @@ export default function OnboardingWizard() {
     }
   }, [isOpen])
 
-  const handleMathChange = (val) => {
-    setDemoMath(val)
-    try {
-      const cleaned = val.replace(/[^0-9+\-*/.]/g, '')
-      if (cleaned) {
-        // eslint-disable-next-line no-eval
-        const res = Function(`"use strict"; return (${cleaned})`)()
-        if (typeof res === 'number' && !isNaN(res)) {
-          setCalculatedValue(res)
-        }
-      }
-    } catch {
-      // Keep previous valid value on syntax error
-    }
-  }
-
   const handleComplete = () => {
     if (user) {
       localStorage.setItem(`accountize_onboarded_${user.id}`, 'true')
@@ -290,7 +206,7 @@ export default function OnboardingWizard() {
 
   if (!isOpen) return null
 
-  const TOTAL_STEPS = 5
+  const TOTAL_STEPS = 3
 
   return createPortal(
     <div
@@ -301,9 +217,9 @@ export default function OnboardingWizard() {
         left: 0,
         width: '100vw',
         height: '100dvh',
-        background: 'rgba(15, 23, 42, 0.8)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+        background: 'rgba(15, 23, 42, 0.5)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -318,12 +234,12 @@ export default function OnboardingWizard() {
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
           borderRadius: '24px',
-          maxWidth: '580px',
+          maxWidth: '520px',
           width: '100%',
-          padding: '28px 28px 24px 28px',
+          padding: '28px 24px 24px 24px',
           position: 'relative',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
-          maxHeight: 'min(92dvh, 700px)',
+          boxShadow: 'var(--shadow-lg)',
+          maxHeight: 'min(92dvh, 650px)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
@@ -335,7 +251,7 @@ export default function OnboardingWizard() {
         {/* Close / Skip button */}
         <button
           onClick={handleSkip}
-          title="Skip onboarding"
+          title="Skip tour"
           style={{
             position: 'absolute',
             top: 18,
@@ -343,7 +259,7 @@ export default function OnboardingWizard() {
             background: 'var(--bg-primary)',
             border: '1px solid var(--border-color)',
             cursor: 'pointer',
-            color: 'var(--text-secondary)',
+            color: 'var(--text-muted)',
             padding: 6,
             borderRadius: '50%',
             display: 'flex',
@@ -358,8 +274,8 @@ export default function OnboardingWizard() {
         {/* Step Indicator Progress Bar */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: '0.725rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-              Financial Guide • Step {currentStep} of {TOTAL_STEPS}
+            <span style={{ fontSize: '0.725rem', fontWeight: 800, color: 'var(--indigo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              Welcome Tour • Step {currentStep} of {TOTAL_STEPS}
             </span>
             <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 600 }}>
               {Math.round((currentStep / TOTAL_STEPS) * 100)}% Complete
@@ -374,7 +290,7 @@ export default function OnboardingWizard() {
                   height: 5,
                   borderRadius: 3,
                   flex: 1,
-                  background: currentStep >= step ? 'var(--accent-gradient)' : 'var(--border-color)',
+                  background: currentStep >= step ? 'var(--indigo)' : 'var(--border-color)',
                   transition: 'all 0.3s ease'
                 }}
               />
@@ -382,147 +298,74 @@ export default function OnboardingWizard() {
           </div>
         </div>
 
-        {/* STEP 1: Double-Entry Architecture */}
+        {/* STEP 1: Daily Expenses */}
         {currentStep === 1 && (
           <div className="animate-in" style={{ textAlign: 'center' }}>
             <div style={{
               width: 52,
               height: 52,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(59,130,246,0.2))',
-              color: 'var(--primary)',
+              background: 'var(--indigo-bg)',
+              border: '1px solid var(--indigo-border)',
+              color: 'var(--indigo)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 14
             }}>
-              <Wallet size={26} />
+              <Receipt size={26} />
             </div>
 
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)' }}>
-              1. Double-Entry Asset Architecture
+              1. Track Daily Expenses
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
-              Accountize structures your finances using accounting precision. Separate your funds into <strong>Self</strong> (Cash &amp; Bank), <strong>Receivables</strong> (Money owed to you), and <strong>Payables</strong> (Money you owe).
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
+              Quickly record daily spending on the go. View expenses grouped by date and track your monthly budget effortlessly.
             </p>
 
-            <GraphicAccountStructure />
+            <GraphicDailyExpenses />
           </div>
         )}
 
-        {/* STEP 2: Daily Expenses & Monthly Fault Verification */}
+        {/* STEP 2: Receivables & Payables */}
         {currentStep === 2 && (
           <div className="animate-in" style={{ textAlign: 'center' }}>
             <div style={{
               width: 52,
               height: 52,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(59,130,246,0.2))',
-              color: '#10b981',
+              background: 'var(--green-bg)',
+              border: '1px solid var(--green-border)',
+              color: 'var(--green)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 14
             }}>
-              <Scale size={26} />
+              <Users size={26} />
             </div>
 
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)' }}>
-              2. Expense Tracking &amp; Monthly Audit
+              2. Track Owed Money &amp; Liabilities
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
-              Log daily expenses on the go. At the end of every month, run a <strong>Monthly Verification Audit</strong> to compare recorded assets against physical cash and detect balance discrepancies.
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
+              Never forget who owes you money (Receivables) or who you owe (Payables). Manage balances with friends and vendors clearly.
             </p>
 
-            <GraphicMonthlyAudit />
+            <GraphicPeersAndLedger />
           </div>
         )}
 
-        {/* STEP 3: Fast Inline Math Engine */}
+        {/* STEP 3: Monthly Audit & Check */}
         {currentStep === 3 && (
           <div className="animate-in" style={{ textAlign: 'center' }}>
             <div style={{
               width: 52,
               height: 52,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))',
-              color: '#3b82f6',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 14
-            }}>
-              <Calculator size={26} />
-            </div>
-
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)' }}>
-              3. Built-in Math &amp; Bill Splitting
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
-              No need to switch to an external calculator! Type mathematical expressions like <code>1200 + 450 / 2</code> directly into any transaction field for automatic evaluation.
-            </p>
-
-            <div style={{
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-color)',
-              padding: '18px',
-              borderRadius: '16px',
-              marginBottom: '20px'
-            }}>
-              <label style={{ textAlign: 'left', display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                Try typing a math expression:
-              </label>
-              <input
-                type="text"
-                className="search-input"
-                value={demoMath}
-                onChange={e => handleMathChange(e.target.value)}
-                style={{ fontSize: '1.15rem', fontWeight: 800, textAlign: 'center', width: '100%', marginBottom: 10, padding: '10px' }}
-              />
-              <div style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <Sparkles size={16} /> Total: ₹{calculatedValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: Shared Ledgers & Dual Sync */}
-        {currentStep === 4 && (
-          <div className="animate-in" style={{ textAlign: 'center' }}>
-            <div style={{
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(245,158,11,0.2))',
-              color: '#6366f1',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 14
-            }}>
-              <Share2 size={26} />
-            </div>
-
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)' }}>
-              4. Shared Ledgers &amp; Dual Verification
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
-              Share unique ledger links with roommates or business partners. When transactions are created, both parties receive dual-verification entries to ensure 100% mutual trust.
-            </p>
-
-            <GraphicSharedLedger />
-          </div>
-        )}
-
-        {/* STEP 5: Privacy Sovereignty & Security */}
-        {currentStep === 5 && (
-          <div className="animate-in" style={{ textAlign: 'center' }}>
-            <div style={{
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(99,102,241,0.2))',
-              color: '#10b981',
+              background: 'var(--blue-bg)',
+              border: '1px solid var(--blue-border)',
+              color: 'var(--blue)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -532,18 +375,18 @@ export default function OnboardingWizard() {
             </div>
 
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)' }}>
-              5. Enterprise Privacy &amp; 2FA Protection
+              3. Audit &amp; Reconcile Monthly
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
-              Your financial data is private and secure. Enable <strong>Authenticator 2FA (TOTP)</strong> and generate <strong>Backup Recovery Codes</strong> under Account Settings for emergency access.
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16 }}>
+              Cross-check recorded assets against actual cash and bank accounts every month to keep your financial records 100% accurate.
             </p>
 
-            <GraphicSecurity />
+            <GraphicMonthlyCheck />
           </div>
         )}
 
         {/* Controls & Footer Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, pt: 12, borderTop: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-color)' }}>
           {currentStep > 1 ? (
             <button
               className="btn btn-secondary btn-sm"
@@ -558,7 +401,7 @@ export default function OnboardingWizard() {
               onClick={handleSkip}
               style={{ color: 'var(--text-muted)' }}
             >
-              Skip Onboarding
+              Skip Tour
             </button>
           )}
 
@@ -574,7 +417,7 @@ export default function OnboardingWizard() {
             <button
               className="btn btn-primary btn-sm"
               onClick={handleComplete}
-              style={{ background: '#10b981', borderColor: '#10b981', display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ background: 'var(--green)', borderColor: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <Check size={14} /> Start Managing Wealth
             </button>

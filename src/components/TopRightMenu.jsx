@@ -75,7 +75,7 @@ export default function TopRightMenu() {
             type="button"
           >
             <HelpCircle size={16} />
-            <span>Rerun Onboarding Demo</span>
+            <span>Run Demo</span>
           </button>
           
           <button 

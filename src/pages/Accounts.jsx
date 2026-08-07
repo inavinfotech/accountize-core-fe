@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getAccountBalances, createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, getLinkedAccounts, verifyTransaction, rejectTransaction, isDefaultAccount, getActiveSharedLinksCount } from '../lib/db'
 import { useSubscription } from '../context/SubscriptionContext'
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 
 export default function Accounts() {
+  const [searchParams] = useSearchParams()
   const { currentMonth, refreshKey, triggerRefresh } = useApp()
   const { limits, isPro, isTrial } = useSubscription()
   const [accounts, setAccounts] = useState([])
@@ -22,7 +24,17 @@ export default function Accounts() {
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [showAddTransaction, setShowAddTransaction] = useState(null)
   const [expandedAccount, setExpandedAccount] = useState(null)
-  const [activeTab, setActiveTab] = useState('receivable')
+  
+  const tabParam = searchParams.get('tab')
+  const initialTab = (tabParam && ['receivable', 'payable', 'self'].includes(tabParam)) ? tabParam : 'receivable'
+  const [activeTab, setActiveTab] = useState(initialTab)
+
+  useEffect(() => {
+    const currentTabParam = searchParams.get('tab')
+    if (currentTabParam && ['receivable', 'payable', 'self'].includes(currentTabParam)) {
+      setActiveTab(currentTabParam)
+    }
+  }, [searchParams])
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [sharingAccount, setSharingAccount] = useState(null) // { accountId, token, loading, copied }
@@ -381,7 +393,7 @@ export default function Accounts() {
   const tabs = [
     { key: 'receivable', label: 'Receivable', icon: ArrowUpRight, color: 'green' },
     { key: 'payable', label: 'Payable', icon: ArrowDownRight, color: 'red' },
-    { key: 'self', label: 'Self (Cash/Online)', icon: Wallet, color: 'blue' },
+    { key: 'self', label: 'Wallets & Banks', icon: Wallet, color: 'blue' },
   ]
 
   if (loading) {
@@ -753,7 +765,7 @@ export default function Accounts() {
               >
                 <option value="receivable">Receivable (they owe me)</option>
                 <option value="payable">Payable (I owe them)</option>
-                <option value="self">Self (Cash / Online)</option>
+                <option value="self">Wallets & Banks (Cash / Online)</option>
               </select>
             </div>
             {newAccount.type === 'self' && (

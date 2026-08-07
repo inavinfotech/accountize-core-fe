@@ -191,8 +191,10 @@ export default function Verification() {
   return (
     <div className="animate-in">
       <div className="page-header">
-        <h2>Verification</h2>
-        <p>Fault detection and cross-check logic</p>
+        <div>
+          <h2>Audit & Check</h2>
+          <p>Monthly balance reconciliation and audit checks</p>
+        </div>
       </div>
 
       {/* Overall Status */}

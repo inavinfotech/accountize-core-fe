@@ -76,6 +76,7 @@ export function AuthProvider({ children }) {
       password,
     })
     if (error) throw error
+    analytics.userSignedIn('email')
     return data
   }
 
@@ -89,10 +90,12 @@ export function AuthProvider({ children }) {
     })
     if (error) throw error
     analytics.signUpCompleted(email, 'email')
+    analytics.userSignedIn('email')
     return data
   }
 
   const signOut = async () => {
+    analytics.userSignedOut()
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
@@ -100,6 +103,7 @@ export function AuthProvider({ children }) {
   // ── OAuth (Google / GitHub) ──
   const signInWithOAuth = async (provider, options = {}) => {
     const targetUrl = options.redirectTo || window.location.origin
+    analytics.userSignedIn(provider)
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -113,6 +117,7 @@ export function AuthProvider({ children }) {
   // ── Magic Link ──
   const signInWithMagicLink = async (email, options = {}) => {
     const targetUrl = options.emailRedirectTo || window.location.origin
+    analytics.userSignedIn('magic_link')
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {

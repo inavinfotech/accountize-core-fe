@@ -240,13 +240,36 @@ function AppLayout() {
   )
 }
 
+const ROUTE_TITLES = {
+  '/': 'Accountize — Personal Finance Dashboard',
+  '/accounts': 'Accountize — Accounts & Receivables',
+  '/expenses': 'Accountize — Daily Expenses',
+  '/transactions': 'Accountize — Transaction Ledger',
+  '/verification': 'Accountize — Health & Fault Verification',
+  '/settings': 'Accountize — Preferences & Security',
+  '/login': 'Accountize — Authentication'
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation()
 
   useEffect(() => {
     window.scrollTo(0, 0)
-    analytics.pageViewed(pathname, document.title)
+    const title = ROUTE_TITLES[pathname] || (pathname.startsWith('/shared/') ? 'Accountize — Shared Ledger' : 'Accountize — Personal Finance Tracker')
+    document.title = title
+    analytics.pageViewed(pathname, title)
   }, [pathname])
+
+  // Active tab 2-minute heartbeat telemetry
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        analytics.heartbeat()
+      }
+    }, 2 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   return null
 }

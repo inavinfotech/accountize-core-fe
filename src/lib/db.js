@@ -170,6 +170,9 @@ export async function createTransaction(transaction) {
     .select('*, accounts(name, type)')
     .single()
   if (error) throw error
+  if (data) {
+    analytics.transactionCreated(data.accounts?.type || 'transaction', data.amount)
+  }
   return data
 }
 
@@ -180,6 +183,7 @@ export async function deleteTransaction(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  analytics.transactionDeleted(id)
 }
 
 export async function updateTransaction(id, updates) {
@@ -228,6 +232,9 @@ export async function createExpense(expense) {
     .select()
     .single()
   if (error) throw error
+  if (data) {
+    analytics.expenseCreated(data.amount, 'single')
+  }
   return data
 }
 
@@ -243,6 +250,8 @@ export async function createExpenses(expensesList) {
     .insert(listWithTime)
     .select()
   if (error) throw error
+  const totalAmount = (expensesList || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0)
+  analytics.expenseCreated(totalAmount, 'bulk_import')
   return data
 }
 
@@ -253,6 +262,7 @@ export async function deleteExpense(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  analytics.expenseDeleted(id)
 }
 
 export async function updateExpense(id, updates) {
@@ -264,6 +274,7 @@ export async function updateExpense(id, updates) {
     .select()
     .single()
   if (error) throw error
+  analytics.expenseUpdated(id)
   return data
 }
 
@@ -635,6 +646,7 @@ export async function getSharedLedger(token) {
     if (!data) return null
 
     const balance = (data.transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0)
+    analytics.sharedLedgerViewed(token)
 
     return {
       account: data.account,

@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { logError } from '../lib/analytics'
 
 /**
  * Global Error Boundary — catches unhandled React rendering errors
@@ -16,6 +17,8 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary] Caught rendering error:', error, errorInfo)
+    const stack = error?.stack || errorInfo?.componentStack || ''
+    logError(`[React Rendering Error] ${error?.message || 'Component crash'}`, stack, window.location.href)
   }
 
   handleReload = () => {

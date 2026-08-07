@@ -2,12 +2,8 @@ import { useState, useEffect } from 'react'
 import { useDataStore } from '../lib/useDataStore.jsx'
 import { upsertMonthlySummary, createTransaction, deleteTransaction } from '../lib/db'
 import { formatCurrency, getAmountClass } from '../lib/utils'
+import { analytics } from '../lib/analytics'
 import { VerificationSkeleton } from '../components/Skeletons'
-import InfoButton from '../components/InfoButton'
-import {
-  ShieldCheck, ShieldAlert, Save, AlertTriangle,
-  CheckCircle2, XCircle, ArrowRight
-} from 'lucide-react'
 
 export default function Verification() {
   const { currentMonth, triggerRefresh, dashboardData: data, initialLoading: loading } = useDataStore()
@@ -91,6 +87,9 @@ export default function Verification() {
 
       // Matching Excel G55/H55: Cash verification
       const cashVerified = !manualCash || Math.round(data.cashBalance * 100) === Math.round(manualCashVal * 100)
+
+      const faultCount = (!isOnlineVerified ? 1 : 0) + (!cashVerified ? 1 : 0)
+      analytics.faultCheckRun(faultCount)
 
       await upsertMonthlySummary({
         month_year: currentMonth,

@@ -5,19 +5,32 @@ import { supabase } from './supabase'
  * Pruned for zero noise & low DB load. Only tracks high-value business funnels & feature milestones.
  */
 export const analytics = {
-  // Conversion Funnels
+  // Auth & Session Events
   signUpCompleted: (email, provider = 'email') => sendEvent('signup_completed', { email, provider }),
+  userSignedIn: (provider = 'email') => sendEvent('user_signed_in', { provider }),
+  userSignedOut: () => sendEvent('user_signed_out', {}),
   pwaInstalled: (platform) => sendEvent('pwa_installed', { platform: platform || navigator.userAgent }),
   onboardingCompleted: (userId) => sendEvent('onboarding_completed', { userId }),
 
-  // Navigation & Page Views
+  // Navigation, Heartbeat & Page Views
   pageViewed: (path, title = '') => sendEvent('page_viewed', { path: String(path || '').toLowerCase(), title }),
+  heartbeat: () => sendEvent('user_heartbeat', { url: window.location.pathname }),
 
   // High-Value Feature Milestones
   accountCreated: (accountType, subtype) => sendEvent('account_created', { type: accountType, subtype }),
+  accountSettled: (accountType, amount) => sendEvent('account_settled', { type: accountType, amount }),
+  expenseCreated: (amount, category) => sendEvent('expense_created', { amount, category }),
+  expenseUpdated: (id) => sendEvent('expense_updated', { id }),
+  expenseDeleted: (id) => sendEvent('expense_deleted', { id }),
+  transactionCreated: (accountType, amount) => sendEvent('transaction_created', { type: accountType, amount }),
+  transactionDeleted: (id) => sendEvent('transaction_deleted', { id }),
   mathSplitUsed: (expression, total) => sendEvent('math_split_used', { expression, total }),
   sharedLedgerCreated: (accountType, tokenId) => sendEvent('shared_ledger_created', { type: accountType, token_id: tokenId }),
   sharedLedgerLinked: (linkId) => sendEvent('shared_ledger_linked', { link_id: linkId }),
+  sharedLedgerViewed: (token) => sendEvent('shared_ledger_viewed', { token }),
+  faultCheckRun: (faultCount) => sendEvent('fault_check_run', { fault_count: faultCount }),
+  themeChanged: (theme) => sendEvent('theme_changed', { theme }),
+  dataExported: (format) => sendEvent('data_exported', { format }),
   statementExported: (format, monthYear) => sendEvent('statement_exported', { format, month_year: monthYear }),
   mfaEnabled: () => sendEvent('mfa_enabled', {}),
   supportTicketSubmitted: (subject) => sendEvent('support_ticket_submitted', { subject }),

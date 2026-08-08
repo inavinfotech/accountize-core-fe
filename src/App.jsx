@@ -8,6 +8,8 @@ import { DataStoreProvider, useApp } from './lib/useDataStore.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext'
+import { SystemConfigProvider, useSystemConfig } from './context/SystemConfigContext'
+import ServiceBlockScreen from './components/ServiceBlockScreen'
 import TopRightMenu from './components/TopRightMenu'
 import NotificationBell from './components/NotificationBell'
 import ToastContainer from './components/ToastContainer'
@@ -27,6 +29,7 @@ const Transactions = lazy(() => import('./pages/Transactions'))
 function ProtectedRoute({ children }) {
   const { user, isMfaRequired, loading, signOut } = useAuth()
   const { isSuspended } = useSubscription()
+  const { isUserPanelEnabled, userPanelBlockMessage } = useSystemConfig()
   
   if (loading) {
     return (
@@ -38,6 +41,16 @@ function ProtectedRoute({ children }) {
   
   if (!user || isMfaRequired) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!isUserPanelEnabled) {
+    return (
+      <ServiceBlockScreen
+        title="User Panel Under Maintenance"
+        message={userPanelBlockMessage || 'The User Panel is currently under system maintenance. Please check back shortly.'}
+        allowSignOut={true}
+      />
+    )
   }
 
   if (isSuspended) {
@@ -288,33 +301,35 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <AuthProvider>
-        <NotificationProvider>
-        <SubscriptionProvider>
-          <DataStoreProvider>
-            <Suspense fallback={
-              <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-                <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-              </div>
-            }>
-              <Routes>
-                <Route path="/login" element={<LoginRoute />} />
-                <Route path="/ref/:code" element={<ReferralRedirect />} />
-                <Route path="/shared/:token" element={<SharedLedger />} />
-                <Route 
-                  path="/*" 
-                  element={
-                    <ProtectedRoute>
-                      <AppLayout />
-                    </ProtectedRoute>
-                  } 
-                />
-              </Routes>
-            </Suspense>
-          </DataStoreProvider>
-        </SubscriptionProvider>
-        </NotificationProvider>
-      </AuthProvider>
+      <SystemConfigProvider>
+        <AuthProvider>
+          <NotificationProvider>
+          <SubscriptionProvider>
+            <DataStoreProvider>
+              <Suspense fallback={
+                <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+                  <div className="auth-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+                </div>
+              }>
+                <Routes>
+                  <Route path="/login" element={<LoginRoute />} />
+                  <Route path="/ref/:code" element={<ReferralRedirect />} />
+                  <Route path="/shared/:token" element={<SharedLedger />} />
+                  <Route 
+                    path="/*" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout />
+                      </ProtectedRoute>
+                    } 
+                  />
+                </Routes>
+              </Suspense>
+            </DataStoreProvider>
+          </SubscriptionProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </SystemConfigProvider>
     </BrowserRouter>
   )
 }

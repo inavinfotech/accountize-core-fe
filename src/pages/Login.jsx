@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { applyReferralCode } from '../lib/db'
+import { useSystemConfig } from '../context/SystemConfigContext'
+import ServiceBlockScreen from '../components/ServiceBlockScreen'
 import {
   Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2,
-  Shield, Wand2, KeyRound
+  Shield, Wand2, KeyRound, UserX, LogIn
 } from 'lucide-react'
 
 // Inline SVG icons for Google & GitHub (avoids extra dependencies)
@@ -248,6 +250,8 @@ export default function Login() {
     }
   }, [mfaCode])
 
+  const { isLoginEnabled, loginBlockMessage, isSignupEnabled, signupBlockMessage } = useSystemConfig()
+
   // Handle MFA step up check on mount or when auth state updates it
   useEffect(() => {
     if (isMfaRequired) {
@@ -270,6 +274,28 @@ export default function Login() {
     }
   }, [isMfaRequired])
 
+  // Check if current mode (Login vs Signup) is disabled by super admin
+  if (isSignUp && !isSignupEnabled) {
+    return (
+      <ServiceBlockScreen
+        title="New Signups Temporarily Suspended"
+        message={signupBlockMessage || 'New user registrations are currently disabled by administration for maintenance.'}
+        icon={UserX}
+        onBackToLogin={isLoginEnabled ? () => setIsSignUp(false) : null}
+      />
+    )
+  }
+
+  if (!isSignUp && !isLoginEnabled) {
+    return (
+      <ServiceBlockScreen
+        title="Account Login Temporarily Suspended"
+        message={loginBlockMessage || 'User logins are currently disabled by administration for system updates.'}
+        icon={LogIn}
+        onBackToLogin={isSignupEnabled ? () => setIsSignUp(true) : null}
+      />
+    )
+  }
 
   return (
     <div className="auth-container">

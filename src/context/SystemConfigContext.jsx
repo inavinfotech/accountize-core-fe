@@ -8,7 +8,8 @@ export function SystemConfigProvider({ children }) {
   const [config, setConfig] = useState({
     login: { enabled: true, message: '' },
     signup: { enabled: true, message: '' },
-    user_panel: { enabled: true, message: '' }
+    user_panel: { enabled: true, message: '' },
+    bypass_users: ''
   })
   const [loading, setLoading] = useState(true)
 
@@ -21,6 +22,8 @@ export function SystemConfigProvider({ children }) {
         return
       }
       if (data) {
+        // bypass_users value can be in raw_value or message
+        const rawBypass = data.bypass_users?.raw_value || data.bypass_users?.message || ''
         setConfig({
           login: {
             enabled: data.login_enabled?.enabled ?? true,
@@ -33,7 +36,8 @@ export function SystemConfigProvider({ children }) {
           user_panel: {
             enabled: data.user_panel_enabled?.enabled ?? true,
             message: data.user_panel_enabled?.message || ''
-          }
+          },
+          bypass_users: rawBypass
         })
       }
     } catch (err) {
@@ -47,6 +51,43 @@ export function SystemConfigProvider({ children }) {
     fetchConfig()
   }, [fetchConfig])
 
+  // Parse bypass users list into array of normalized strings
+  const getBypassList = useCallback(() => {
+    if (!config.bypass_users) return []
+    return config.bypass_users
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+  }, [config.bypass_users])
+
+  // Check if a user (object or email/UUID string) is exempt from maintenance blocks
+  const isUserBypassed = useCallback((userOrIdentifier) => {
+    if (!userOrIdentifier) return false
+
+    const email = typeof userOrIdentifier === 'object' ? userOrIdentifier?.email : userOrIdentifier
+    const userId = typeof userOrIdentifier === 'object' ? userOrIdentifier?.id : userOrIdentifier
+
+    const lowerEmail = email ? String(email).trim().toLowerCase() : ''
+    const lowerId = userId ? String(userId).trim().toLowerCase() : ''
+
+    // Super Admin domain / email auto-bypass
+    if (lowerEmail && (
+      lowerEmail.endsWith('@inexarum.com') ||
+      lowerEmail.endsWith('@inexarum.in') ||
+      lowerEmail === 'admin@accountize.app'
+    )) {
+      return true
+    }
+
+    const bypassList = getBypassList()
+    if (bypassList.length === 0) return false
+
+    return (
+      (lowerEmail && bypassList.includes(lowerEmail)) ||
+      (lowerId && bypassList.includes(lowerId))
+    )
+  }, [getBypassList])
+
   const value = {
     config,
     loading,
@@ -56,6 +97,8 @@ export function SystemConfigProvider({ children }) {
     signupBlockMessage: config.signup.message,
     isUserPanelEnabled: config.user_panel.enabled,
     userPanelBlockMessage: config.user_panel.message,
+    bypassUsers: config.bypass_users,
+    isUserBypassed,
     refreshConfig: fetchConfig
   }
 

@@ -250,7 +250,9 @@ export default function Login() {
     }
   }, [mfaCode])
 
-  const { isLoginEnabled, loginBlockMessage, isSignupEnabled, signupBlockMessage } = useSystemConfig()
+  const { user } = useAuth()
+  const { isLoginEnabled, loginBlockMessage, isSignupEnabled, signupBlockMessage, isUserBypassed } = useSystemConfig()
+  const userIsBypassed = isUserBypassed(user) || (email && isUserBypassed(email))
 
   // Handle MFA step up check on mount or when auth state updates it
   useEffect(() => {
@@ -274,8 +276,8 @@ export default function Login() {
     }
   }, [isMfaRequired])
 
-  // Check if current mode (Login vs Signup) is disabled by super admin
-  if (isSignUp && !isSignupEnabled) {
+  // Check if current mode (Login vs Signup) is disabled by super admin (and user is not bypassed)
+  if (isSignUp && !isSignupEnabled && !userIsBypassed) {
     return (
       <ServiceBlockScreen
         title="New Signups Temporarily Suspended"
@@ -286,7 +288,7 @@ export default function Login() {
     )
   }
 
-  if (!isSignUp && !isLoginEnabled) {
+  if (!isSignUp && !isLoginEnabled && !userIsBypassed) {
     return (
       <ServiceBlockScreen
         title="Account Login Temporarily Suspended"

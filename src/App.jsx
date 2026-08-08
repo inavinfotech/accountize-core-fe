@@ -29,7 +29,7 @@ const Transactions = lazy(() => import('./pages/Transactions'))
 function ProtectedRoute({ children }) {
   const { user, isMfaRequired, loading, signOut } = useAuth()
   const { isSuspended } = useSubscription()
-  const { isUserPanelEnabled, userPanelBlockMessage } = useSystemConfig()
+  const { isUserPanelEnabled, userPanelBlockMessage, isUserBypassed } = useSystemConfig()
   
   if (loading) {
     return (
@@ -43,7 +43,7 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />
   }
 
-  if (!isUserPanelEnabled) {
+  if (!isUserPanelEnabled && !isUserBypassed(user)) {
     return (
       <ServiceBlockScreen
         title="User Panel Under Maintenance"

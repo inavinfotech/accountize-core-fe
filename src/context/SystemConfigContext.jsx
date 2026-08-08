@@ -9,7 +9,9 @@ export function SystemConfigProvider({ children }) {
     login: { enabled: true, message: '' },
     signup: { enabled: true, message: '' },
     user_panel: { enabled: true, message: '' },
-    bypass_users: ''
+    bypass_users: '',
+    pro_monthly_price: '149',
+    pro_annual_price: '1199'
   })
   const [loading, setLoading] = useState(true)
 
@@ -22,8 +24,10 @@ export function SystemConfigProvider({ children }) {
         return
       }
       if (data) {
-        // bypass_users value can be in raw_value or message
         const rawBypass = data.bypass_users?.raw_value || data.bypass_users?.message || ''
+        const rawMonthly = data.pro_monthly_price?.raw_value || '149'
+        const rawAnnual = data.pro_annual_price?.raw_value || '1199'
+
         setConfig({
           login: {
             enabled: data.login_enabled?.enabled ?? true,
@@ -37,7 +41,9 @@ export function SystemConfigProvider({ children }) {
             enabled: data.user_panel_enabled?.enabled ?? true,
             message: data.user_panel_enabled?.message || ''
           },
-          bypass_users: rawBypass
+          bypass_users: rawBypass,
+          pro_monthly_price: rawMonthly,
+          pro_annual_price: rawAnnual
         })
       }
     } catch (err) {
@@ -88,6 +94,11 @@ export function SystemConfigProvider({ children }) {
     )
   }, [getBypassList])
 
+  const proMonthlyPrice = Number(config.pro_monthly_price) || 149
+  const proAnnualPrice = Number(config.pro_annual_price) || 1199
+  const proMonthlyPaise = Math.round(proMonthlyPrice * 100)
+  const proAnnualPaise = Math.round(proAnnualPrice * 100)
+
   const value = {
     config,
     loading,
@@ -98,6 +109,10 @@ export function SystemConfigProvider({ children }) {
     isUserPanelEnabled: config.user_panel.enabled,
     userPanelBlockMessage: config.user_panel.message,
     bypassUsers: config.bypass_users,
+    proMonthlyPrice,
+    proAnnualPrice,
+    proMonthlyPaise,
+    proAnnualPaise,
     isUserBypassed,
     refreshConfig: fetchConfig
   }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Crown, Check, X, Zap, Sparkles, Shield, FileText, Target, Headphones, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSubscription } from '../context/SubscriptionContext'
+import { useSystemConfig } from '../context/SystemConfigContext'
 import { initiatePayment, PLAN_PRICING } from '../lib/payment'
 import { analytics } from '../lib/analytics'
 
@@ -28,6 +29,7 @@ const PRO_FEATURES = [
 export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
   const { user } = useAuth()
   const { isTrial, trialDaysLeft, upgradeToProAfterPayment } = useSubscription()
+  const { proMonthlyPrice, proAnnualPrice, proMonthlyPaise, proAnnualPaise } = useSystemConfig()
   const [billingCycle, setBillingCycle] = useState('monthly')
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState('')
@@ -35,7 +37,15 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
 
   if (!isOpen) return null
 
-  const pricing = PLAN_PRICING.pro[billingCycle]
+  const fullYearPrice = proMonthlyPrice * 12
+  const annualSavings = fullYearPrice - proAnnualPrice
+  const savingsPercent = Math.max(0, Math.round((annualSavings / fullYearPrice) * 100))
+
+  const currentPrice = billingCycle === 'annual' ? proAnnualPrice : proMonthlyPrice
+  const currentAmountPaise = billingCycle === 'annual' ? proAnnualPaise : proMonthlyPaise
+  const displayPrice = `₹${currentPrice.toLocaleString('en-IN')}`
+  const priceLabel = billingCycle === 'annual' ? 'per year' : 'per month'
+  const monthlyEquivalent = billingCycle === 'annual' ? `₹${Math.round(proAnnualPrice / 12)}` : null
 
   const handleUpgrade = async () => {
     setPaymentError('')
@@ -48,7 +58,7 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
     setPaymentLoading(true)
 
     analytics.upgradeClicked(triggerReason || 'upgrade_modal', billingCycle)
-    analytics.paymentInitiated(billingCycle, pricing.amount)
+    analytics.paymentInitiated(billingCycle, currentAmountPaise)
 
     const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
 
@@ -57,9 +67,10 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
       userEmail: user.email,
       userName: displayName,
       billingCycle,
+      customAmountPaise: currentAmountPaise,
       onSuccess: async ({ orderId, paymentId, billingCycle: cycle }) => {
         try {
-          analytics.paymentCompleted(orderId, paymentId, cycle, pricing.amount)
+          analytics.paymentCompleted(orderId, paymentId, cycle, currentAmountPaise)
           await upgradeToProAfterPayment(cycle, orderId, paymentId)
           setPaymentSuccess(true)
           setPaymentLoading(false)
@@ -197,13 +208,15 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
               Annual
-              <span style={{
-                padding: '2px 6px', borderRadius: 4,
-                background: '#ecfdf5', color: '#059669',
-                fontSize: '0.6rem', fontWeight: 800,
-              }}>
-                Save 33%
-              </span>
+              {savingsPercent > 0 && (
+                <span style={{
+                  padding: '2px 6px', borderRadius: 4,
+                  background: '#ecfdf5', color: '#059669',
+                  fontSize: '0.6rem', fontWeight: 800,
+                }}>
+                  Save {savingsPercent}%
+                </span>
+              )}
             </span>
           </div>
 
@@ -250,21 +263,38 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
               <h3 style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2a498c', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>
                 Pro Plan
               </h3>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 2 }}>
-                {pricing.display}{' '}
-                <span style={{ fontSize: '0.68rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                  {pricing.label}
-                </span>
-              </div>
-              {billingCycle === 'annual' && pricing.monthlyEquivalent && (
-                <p style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 600, marginBottom: 14 }}>
-                  Just {pricing.monthlyEquivalent}/month
-                </p>
-              )}
-              {billingCycle === 'monthly' && (
-                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: 14 }}>
-                  Billed monthly
-                </p>
+
+              {billingCycle === 'annual' ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                    {annualSavings > 0 && (
+                      <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 600 }}>
+                        ₹{fullYearPrice.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      ₹{proAnnualPrice.toLocaleString('en-IN')}
+                    </span>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                      per year
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 600, marginBottom: 14 }}>
+                    Just ₹{Math.round(proAnnualPrice / 12)}/month {annualSavings > 0 ? `(Save ₹${annualSavings.toLocaleString('en-IN')})` : ''}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 2 }}>
+                    ₹{proMonthlyPrice.toLocaleString('en-IN')}{' '}
+                    <span style={{ fontSize: '0.68rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                      per month
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: 14 }}>
+                    Billed monthly
+                  </p>
+                </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18, flex: 1 }}>
                 {PRO_FEATURES.map((f, i) => (
@@ -301,7 +331,7 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
                 ) : (
                   <>
                     <Crown size={14} />
-                    Upgrade to Pro — {pricing.display}
+                    Upgrade to Pro — {displayPrice}
                   </>
                 )}
               </button>

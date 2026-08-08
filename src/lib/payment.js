@@ -162,6 +162,7 @@ export async function initiatePayment({
   userEmail,
   userName,
   billingCycle = 'monthly',
+  customAmountPaise = null,
   onSuccess,
   onFailure,
   onCancel,
@@ -170,14 +171,16 @@ export async function initiatePayment({
     // 1. Load Razorpay script
     await loadRazorpayScript()
 
-    // 2. Create order via portal-payment
-    const pricing = PLAN_PRICING.pro[billingCycle]
-    const orderData = await createPaymentOrder(userId, pricing.amount, 'INR', billingCycle)
+    // 2. Create order via portal-payment using custom dynamic amount or default pricing
+    const defaultAmount = PLAN_PRICING.pro[billingCycle]?.amount || 14900
+    const finalAmount = customAmountPaise && Number(customAmountPaise) > 0 ? Number(customAmountPaise) : defaultAmount
+
+    const orderData = await createPaymentOrder(userId, finalAmount, 'INR', billingCycle)
 
     // 3. Open Razorpay checkout
     const options = {
       key: orderData.key_id,
-      amount: pricing.amount,
+      amount: finalAmount,
       currency: 'INR',
       name: 'Accountize',
       description: `Pro Plan — ${billingCycle === 'annual' ? 'Annual' : 'Monthly'}`,

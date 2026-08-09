@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { supabase } from './supabase'
 import { getCurrentMonth, getMonthOptions } from './utils'
 import {
   getActiveMonths,
@@ -73,9 +74,16 @@ export function DataStoreProvider({ children }) {
   // ── Core data fetch ──
   const fetchCoreData = useCallback(async (month, isInitial = false) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session || !session.user) {
+        setInitialLoading(false)
+        setRefreshing(false)
+        return
+      }
+
       if (isInitial) {
         setInitialLoading(true)
-        // One-time: ensure default accounts exist
+        // One-time: ensure default accounts exist for authenticated user
         await ensureDefaultAccounts()
       } else {
         setRefreshing(true)

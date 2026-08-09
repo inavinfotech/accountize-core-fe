@@ -3,6 +3,7 @@ import { analytics } from './analytics'
 
 let activeMonthsCache = null
 let defaultAccountsChecked = false
+let defaultAccountsPromise = null
 
 // ============ CACHE ============
 const dbCache = new Map()
@@ -39,7 +40,39 @@ export function invalidateCache(scope) {
 /** Full cache clear — kept for backward compatibility and logout */
 export function clearDbCache() {
   defaultAccountsChecked = false
+  defaultAccountsPromise = null
   invalidateCache()
+}
+
+/**
+ * Executes a database operation with active session validation and automatic 401 token refresh retry.
+ * Automatically attaches user_id if missing from payload.
+ */
+async function withAuthSession(dbCallFn) {
+  let { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    const { data: refreshData } = await supabase.auth.refreshSession()
+    session = refreshData?.session || null
+  }
+
+  const userId = session?.user?.id
+
+  try {
+    return await dbCallFn(userId, session)
+  } catch (error) {
+    const errorMsg = String(error?.message || '').toLowerCase()
+    const isAuthError = error?.status === 401 || error?.code === 'PGRST301' || errorMsg.includes('401') || errorMsg.includes('jwt') || errorMsg.includes('unauthorized')
+
+    if (isAuthError) {
+      console.warn('[db] Auth session expired/invalidated (401). Retrying with refreshed token...')
+      const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession()
+      if (!refreshErr && refreshData?.session) {
+        return await dbCallFn(refreshData.session.user.id, refreshData.session)
+      }
+    }
+    throw error
+  }
 }
 
 // ============ ACCOUNTS ============
@@ -63,28 +96,33 @@ export async function getAccounts() {
 
 export async function createAccount(account) {
   invalidateCache('accounts')
-  const { data, error } = await supabase
-    .from('accounts')
-    .insert(account)
-    .select()
-    .single()
-  if (error) throw error
-  if (data) {
-    analytics.accountCreated(data.type, data.subtype)
-  }
-  return data
+  return withAuthSession(async (userId) => {
+    const payload = (userId && !account.user_id) ? { ...account, user_id: userId } : account
+    const { data, error } = await supabase
+      .from('accounts')
+      .insert(payload)
+      .select()
+      .single()
+    if (error) throw error
+    if (data) {
+      analytics.accountCreated(data.type, data.subtype)
+    }
+    return data
+  })
 }
 
 export async function updateAccount(id, updates) {
   invalidateCache('accounts')
-  const { data, error } = await supabase
-    .from('accounts')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) throw error
-  return data
+  return withAuthSession(async () => {
+    const { data, error } = await supabase
+      .from('accounts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  })
 }
 
 export function isDefaultAccount(account) {
@@ -100,16 +138,18 @@ export function isDefaultAccount(account) {
 }
 
 export async function deleteAccount(id) {
-  const { data: acc } = await supabase.from('accounts').select('id, name, type, subtype').eq('id', id).maybeSingle()
-  if (acc && isDefaultAccount(acc)) {
-    throw new Error(`Default system account "${acc.name}" cannot be deleted as it is required for automated balance tracking.`)
-  }
-  invalidateCache('accounts')
-  const { error } = await supabase
-    .from('accounts')
-    .delete()
-    .eq('id', id)
-  if (error) throw error
+  return withAuthSession(async () => {
+    const { data: acc } = await supabase.from('accounts').select('id, name, type, subtype').eq('id', id).maybeSingle()
+    if (acc && isDefaultAccount(acc)) {
+      throw new Error(`Default system account "${acc.name}" cannot be deleted as it is required for automated balance tracking.`)
+    }
+    invalidateCache('accounts')
+    const { error } = await supabase
+      .from('accounts')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  })
 }
 
 // ============ TRANSACTIONS ============
@@ -164,38 +204,45 @@ export async function getTransactionsByAccount(accountId, monthYear) {
 
 export async function createTransaction(transaction) {
   invalidateCache('transactions')
-  const { data, error } = await supabase
-    .from('transactions')
-    .insert(transaction)
-    .select('*, accounts(name, type)')
-    .single()
-  if (error) throw error
-  if (data) {
-    analytics.transactionCreated(data.accounts?.type || 'transaction', data.amount)
-  }
-  return data
+  return withAuthSession(async (userId) => {
+    const payload = (userId && !transaction.user_id) ? { ...transaction, user_id: userId } : transaction
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(payload)
+      .select('*, accounts(name, type)')
+      .single()
+    if (error) throw error
+    if (data) {
+      analytics.transactionCreated(data.accounts?.type || 'transaction', data.amount)
+    }
+    return data
+  })
 }
 
 export async function deleteTransaction(id) {
   invalidateCache('transactions')
-  const { error } = await supabase
-    .from('transactions')
-    .delete()
-    .eq('id', id)
-  if (error) throw error
-  analytics.transactionDeleted(id)
+  return withAuthSession(async () => {
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+    analytics.transactionDeleted(id)
+  })
 }
 
 export async function updateTransaction(id, updates) {
   invalidateCache('transactions')
-  const { data, error } = await supabase
-    .from('transactions')
-    .update(updates)
-    .eq('id', id)
-    .select('*, accounts(name, type)')
-    .single()
-  if (error) throw error
-  return data
+  return withAuthSession(async () => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .update(updates)
+      .eq('id', id)
+      .select('*, accounts(name, type)')
+      .single()
+    if (error) throw error
+    return data
+  })
 }
 
 // ============ EXPENSES ============
@@ -226,33 +273,39 @@ export async function getExpenses(monthYear) {
 
 export async function createExpense(expense) {
   invalidateCache('expenses')
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert(expense)
-    .select()
-    .single()
-  if (error) throw error
-  if (data) {
-    analytics.expenseCreated(data.amount, 'single')
-  }
-  return data
+  return withAuthSession(async (userId) => {
+    const payload = (userId && !expense.user_id) ? { ...expense, user_id: userId } : expense
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert(payload)
+      .select()
+      .single()
+    if (error) throw error
+    if (data) {
+      analytics.expenseCreated(data.amount, 'single')
+    }
+    return data
+  })
 }
 
 export async function createExpenses(expensesList) {
   invalidateCache('expenses')
-  const now = new Date()
-  const listWithTime = expensesList.map((exp, idx) => ({
-    ...exp,
-    created_at: new Date(now.getTime() + idx * 1000).toISOString()
-  }))
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert(listWithTime)
-    .select()
-  if (error) throw error
-  const totalAmount = (expensesList || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0)
-  analytics.expenseCreated(totalAmount, 'bulk_import')
-  return data
+  return withAuthSession(async (userId) => {
+    const now = new Date()
+    const listWithTime = expensesList.map((exp, idx) => ({
+      ...exp,
+      user_id: userId || exp.user_id,
+      created_at: new Date(now.getTime() + idx * 1000).toISOString()
+    }))
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert(listWithTime)
+      .select()
+    if (error) throw error
+    const totalAmount = (expensesList || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0)
+    analytics.expenseCreated(totalAmount, 'bulk_import')
+    return data
+  })
 }
 
 export async function deleteExpense(id) {
@@ -322,35 +375,91 @@ export async function upsertMonthlySummary(summary) {
 
 export async function ensureDefaultAccounts() {
   if (defaultAccountsChecked) return false
-  try {
-    const { data: accounts, error } = await supabase
-      .from('accounts')
-      .select('id, name, type, subtype')
-    if (error) throw error
+  if (defaultAccountsPromise) return defaultAccountsPromise
 
-    const selfAccounts = (accounts || []).filter(a => a.type === 'self')
-    const hasCash = selfAccounts.some(a => a.subtype === 'cash')
-    const hasOnline = selfAccounts.some(a => a.subtype === 'online')
-    const hasExpense = selfAccounts.some(a => a.subtype === 'expense' || (a.name && a.name.toLowerCase().includes('expen')))
+  defaultAccountsPromise = (async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session || !session.user) return false
 
-    const missing = []
-    if (!hasCash) missing.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
-    if (!hasOnline) missing.push({ name: 'Online Money', type: 'self', subtype: 'online' })
-    if (!hasExpense) missing.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
+      return await withAuthSession(async (userId) => {
+        if (!userId) return false
 
-    defaultAccountsChecked = true
+        // 1. First attempt server-side RPC deduplication
+        try {
+          await supabase.rpc('deduplicate_default_accounts')
+        } catch (_) {}
 
-    if (missing.length > 0) {
-      for (const item of missing) {
-        await supabase.from('accounts').insert(item)
-      }
-      invalidateCache('accounts')
-      return true
+        const { data: accounts, error } = await supabase
+          .from('accounts')
+          .select('id, name, type, subtype, created_at')
+          .order('created_at', { ascending: true })
+        if (error) throw error
+
+        const selfAccounts = (accounts || []).filter(a => a.type === 'self')
+
+        // ── DEDUPLICATE DUPLICATE DEFAULT ACCOUNTS (Client Fallback) ──
+        const cashAccounts = selfAccounts.filter(a => a.subtype === 'cash')
+        const onlineAccounts = selfAccounts.filter(a => a.subtype === 'online')
+        const expenseAccounts = selfAccounts.filter(a => a.subtype === 'expense' || (a.name && a.name.toLowerCase().includes('expen')))
+
+        const cleanupDuplicates = async (accountList) => {
+          if (accountList.length > 1) {
+            const [keep, ...duplicates] = accountList
+            for (const dup of duplicates) {
+              try {
+                await supabase.from('transactions').update({ account_id: keep.id }).eq('account_id', dup.id)
+              } catch (_) {}
+              try {
+                await supabase.from('accounts').delete().eq('id', dup.id)
+              } catch (_) {}
+            }
+          }
+        }
+
+        if (cashAccounts.length > 1) await cleanupDuplicates(cashAccounts)
+        if (onlineAccounts.length > 1) await cleanupDuplicates(onlineAccounts)
+        if (expenseAccounts.length > 1) await cleanupDuplicates(expenseAccounts)
+
+        const hasCash = cashAccounts.length > 0
+        const hasOnline = onlineAccounts.length > 0
+        const hasExpense = expenseAccounts.length > 0
+
+        const missing = []
+        if (!hasCash) missing.push({ name: 'Cash In Hand', type: 'self', subtype: 'cash' })
+        if (!hasOnline) missing.push({ name: 'Online Money', type: 'self', subtype: 'online' })
+        if (!hasExpense) missing.push({ name: 'Expence Money', type: 'self', subtype: 'expense' })
+
+        defaultAccountsChecked = true
+
+        let stateChanged = false
+        if (missing.length > 0) {
+          for (const item of missing) {
+            const payload = { ...item, user_id: userId }
+            await supabase.from('accounts').insert(payload)
+          }
+          stateChanged = true
+        }
+
+        if (cashAccounts.length > 1 || onlineAccounts.length > 1 || expenseAccounts.length > 1) {
+          stateChanged = true
+        }
+
+        if (stateChanged) {
+          invalidateCache('accounts')
+        }
+
+        return stateChanged
+      })
+    } catch (err) {
+      console.error('Failed to auto-ensure default accounts:', err)
+      return false
+    } finally {
+      defaultAccountsPromise = null
     }
-  } catch (err) {
-    console.error('Failed to auto-ensure default accounts:', err)
-  }
-  return false
+  })()
+
+  return defaultAccountsPromise
 }
 
 export async function getAccountBalances(monthYear) {

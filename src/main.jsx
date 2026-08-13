@@ -8,12 +8,8 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { logError, trackEvent } from './lib/analytics'
 
 // Register PWA Service Worker with auto-update & stale asset recovery
-const updateSW = registerSW({
+registerSW({
   immediate: true,
-  onNeedRefresh() {
-    // Force update service worker immediately when new build is deployed
-    updateSW(true)
-  },
   onOfflineReady() {
     console.log('[PWA] App is ready for offline use.')
   },
@@ -33,10 +29,10 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-// Re-check for new deployment when user switches back to the app tab
+// Safely re-check for new deployment on tab visibility change WITHOUT forcing immediate page reload
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    updateSW(true)
+  if (document.visibilityState === 'visible' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then(reg => reg?.update())
   }
 })
 

@@ -10,8 +10,16 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'logo-192.png', 'logo-512.png', 'robots.txt'],
       manifest: {
+        id: "/",
         short_name: "Accountize",
         name: "Accountize — Personal Finance Tracker",
+        description: "Accountize — Personal finance tracker with receivables, payables, daily expenses, and fault detection.",
+        start_url: "/",
+        background_color: "#f8fafc",
+        theme_color: "#6366f1",
+        display: "standalone",
+        orientation: "any",
+        categories: ["finance", "productivity"],
         icons: [
           {
             src: "/logo-192.png",
@@ -28,15 +36,23 @@ export default defineConfig({
           {
             src: "/logo.svg",
             type: "image/svg+xml",
-            sizes: "any",
-            purpose: "any maskable"
+            sizes: "any"
           }
         ],
-        start_url: "/",
-        background_color: "#f8fafc",
-        display: "standalone",
-        theme_color: "#6366f1",
-        description: "Accountize — Personal finance tracker with receivables, payables, daily expenses, and fault detection."
+        shortcuts: [
+          {
+            name: "Dashboard",
+            short_name: "Dashboard",
+            url: "/",
+            icons: [{ src: "/logo-192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Transactions",
+            short_name: "Transactions",
+            url: "/transactions",
+            icons: [{ src: "/logo-192.png", sizes: "192x192" }]
+          }
+        ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
@@ -46,7 +62,7 @@ export default defineConfig({
         // Serve index.html for all navigation requests (SPA client-side routing)
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/shared\//],
-        // Cache Google Fonts and Supabase API at runtime
+        // Cache Google Fonts and Supabase API requests at runtime
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
@@ -54,6 +70,15 @@ export default defineConfig({
             options: {
               cacheName: 'google-fonts',
               expiration: { maxEntries: 20, maxAgeSeconds: 365 * 24 * 60 * 60 }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api-cache',
+              expiration: { maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 },
+              networkTimeoutSeconds: 5
             }
           }
         ]

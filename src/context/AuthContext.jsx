@@ -12,31 +12,44 @@ export function AuthProvider({ children }) {
   const [isMfaRequired, setIsMfaRequired] = useState(false)
 
   useEffect(() => {
-    // Check active session on mount (with timeout to prevent white screen hang)
+    let isMounted = true
+
+    // Check active session on mount (with timeout to prevent white screen hang on cold start)
     async function getInitialSession() {
+      let timeoutId
       try {
         const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Session check timed out')), 10000)
-        )
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise])
-        if (error) throw error
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Session check timed out')), 25000)
+        })
+        const result = await Promise.race([sessionPromise, timeoutPromise])
+        if (timeoutId) clearTimeout(timeoutId)
+
+        const session = result?.data?.session ?? null
+        if (result?.error) throw result.error
+        if (!isMounted) return
+
         setSession(session)
         setUser(session?.user ?? null)
         if (session) {
-          const { data, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-          if (!aalError && data) {
-            setIsMfaRequired(data.currentLevel === 'aal1' && data.nextLevel === 'aal2')
+          const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          if (!aalError && aalData && isMounted) {
+            setIsMfaRequired(aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2')
           }
         }
       } catch (err) {
-        console.error('Error getting initial session:', err)
-        // On timeout or error, clear auth state so app doesn't hang on white screen
-        setSession(null)
-        setUser(null)
-        setIsMfaRequired(false)
+        if (isMounted) {
+          console.warn('Initial session check notice:', err?.message || err)
+          // On timeout or error, clear auth state so app doesn't hang on white screen
+          setSession(null)
+          setUser(null)
+          setIsMfaRequired(false)
+        }
       } finally {
-        setLoading(false)
+        if (timeoutId) clearTimeout(timeoutId)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
@@ -44,19 +57,20 @@ export function AuthProvider({ children }) {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return
       setSession(session)
       setUser(session?.user ?? null)
       if (session) {
         try {
-          const { data, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-          if (!aalError && data) {
-            setIsMfaRequired(data.currentLevel === 'aal1' && data.nextLevel === 'aal2')
-          } else {
+          const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          if (!aalError && aalData && isMounted) {
+            setIsMfaRequired(aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2')
+          } else if (isMounted) {
             setIsMfaRequired(false)
           }
         } catch (err) {
           console.error('Error checking AAL:', err)
-          setIsMfaRequired(false)
+          if (isMounted) setIsMfaRequired(false)
         }
       } else {
         setIsMfaRequired(false)
@@ -65,6 +79,7 @@ export function AuthProvider({ children }) {
     })
 
     return () => {
+      isMounted = false
       subscription.unsubscribe()
     }
   }, [])

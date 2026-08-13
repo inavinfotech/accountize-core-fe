@@ -4,71 +4,75 @@ import { useSubscription } from '../context/SubscriptionContext'
 import { supabase } from '../lib/supabase'
 import { logError, analytics } from '../lib/analytics'
 import {
-  Shield, ShieldCheck, ShieldAlert, Smartphone, Copy, Check,
-  Trash2, AlertCircle, CheckCircle2, KeyRound, Mail, User, Clock, LogOut,
-  HelpCircle, FileText, Lock, Send, MessageSquare, Crown, Zap, CreditCard, Download, Receipt, Eye, EyeOff, ChevronDown, ChevronUp
+  User, Shield, CreditCard, RefreshCw, CheckCircle2, AlertCircle, Check, Copy,
+  MessageSquare, Send, Lock, FileText, ShieldCheck
 } from 'lucide-react'
-import { exportPaymentInvoicePDF } from '../lib/pdfExport'
 import { SettingsSkeleton } from '../components/Skeletons'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import UpgradeModal from '../components/UpgradeModal'
-import ReferralCard from '../components/ReferralCard'
+
+import AccountTab from '../components/settings/AccountTab'
+import SecurityTab from '../components/settings/SecurityTab'
+import BillingTab from '../components/settings/BillingTab'
+import SystemTab from '../components/settings/SystemTab'
+
+const TABS = [
+  { id: 'account', label: 'Profile & Account', icon: User },
+  { id: 'security', label: 'Security & Auth', icon: Shield },
+  { id: 'billing', label: 'Billing & Plan', icon: CreditCard },
+  { id: 'system', label: 'System & Support', icon: RefreshCw },
+]
 
 export default function Settings() {
   const { user, enrollMFA, challengeAndVerifyMFA, unenrollMFA, getMFAFactors, signOut, updatePassword } = useAuth()
+  const subscription = useSubscription()
+
+  // Tab State
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash.replace('#', '')
+    return TABS.some(t => t.id === hash) ? hash : 'account'
+  })
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    window.history.replaceState(null, '', `#${tabId}`)
+  }
 
   const [factors, setFactors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // Password Management State
-  const [newPass, setNewPass] = useState('')
-  const [confirmPass, setConfirmPass] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [passLoading, setPassLoading] = useState(false)
-  const [passMsg, setPassMsg] = useState('')
-  const [passErr, setPassErr] = useState('')
+  // Hard Refresh State
+  const [hardRefreshing, setHardRefreshing] = useState(false)
+  const [refreshSuccess, setRefreshSuccess] = useState(false)
 
-  const identities = user?.identities || []
-  const hasEmailIdentity = identities.some(i => i.provider === 'email') || user?.app_metadata?.providers?.includes('email')
-  const hasGoogleIdentity = identities.some(i => i.provider === 'google') || user?.app_metadata?.providers?.includes('google')
-  const isGoogleOnly = hasGoogleIdentity && !hasEmailIdentity
-
-  const handleSetPassword = async (e) => {
-    e.preventDefault()
-    setPassErr('')
-    setPassMsg('')
-
-    if (!newPass || newPass.length < 6) {
-      setPassErr('Password must be at least 6 characters long.')
-      return
-    }
-
-    if (newPass !== confirmPass) {
-      setPassErr('Passwords do not match.')
-      return
-    }
-
-    setPassLoading(true)
+  const handleHardRefresh = async () => {
+    setHardRefreshing(true)
     try {
-      await updatePassword(newPass)
-      setPassMsg(isGoogleOnly
-        ? 'Password saved successfully! You can now log in using either Google or your email & password.'
-        : 'Password updated successfully!'
-      )
-      setNewPass('')
-      setConfirmPass('')
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        for (const registration of registrations) {
+          await registration.unregister()
+        }
+      }
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys()
+        await Promise.all(cacheKeys.map(key => caches.delete(key)))
+      }
+      sessionStorage.clear()
+      setRefreshSuccess(true)
+      setTimeout(() => {
+        window.location.href = window.location.origin + window.location.pathname + '?reload=' + Date.now()
+      }, 500)
     } catch (err) {
-      console.error('Failed to update password:', err)
-      setPassErr(err.message || 'Failed to update password. Please try again.')
-    } finally {
-      setPassLoading(false)
+      console.error('Hard refresh error:', err)
+      window.location.reload(true)
     }
   }
 
-  // Enrollment flow
+  // Enrollment flow state
   const [enrolling, setEnrolling] = useState(false)
   const [enrollData, setEnrollData] = useState(null)
   const [verifyCode, setVerifyCode] = useState('')
@@ -93,13 +97,8 @@ export default function Settings() {
   const [supportLoading, setSupportLoading] = useState(false)
   const [supportSent, setSupportSent] = useState(false)
 
-  // Subscription & Upgrade modal
-  const { plan, status, isPro, isTrial, trialDaysLeft, billingCycle: subBillingCycle, currentPeriodEnd, receipts } = useSubscription()
+  // Upgrade modal
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const [showInvoices, setShowInvoices] = useState(false)
-  const [showPasswordSection, setShowPasswordSection] = useState(false)
-  const [showMfaSection, setShowMfaSection] = useState(false)
-  const [showAccountInfo, setShowAccountInfo] = useState(false)
 
   useEffect(() => {
     loadFactors()
@@ -184,15 +183,9 @@ export default function Settings() {
     setVerifyLoading(true)
     try {
       await challengeAndVerifyMFA(enrollData.id, verifyCode)
-      
-      // Generate and save backup codes
       const codes = generateBackupCodes()
       const rows = codes.map(code => ({ code, user_id: user.id, used: false }))
-      
-      // Delete any old codes
       await supabase.from('mfa_backup_codes').delete().eq('user_id', user.id)
-      
-      // Insert new codes
       const { error: dbError } = await supabase.from('mfa_backup_codes').insert(rows)
       if (dbError) throw dbError
 
@@ -249,7 +242,6 @@ export default function Settings() {
     }
   }
 
-  // Auto-submit when 6 digits entered during enrollment
   useEffect(() => {
     if (verifyCode.length === 6 && enrollData && !verifyLoading) {
       handleVerifyEnrollment({ preventDefault: () => {} })
@@ -277,14 +269,6 @@ export default function Settings() {
     }
   }
 
-  const loginProvider = user?.app_metadata?.provider || 'email'
-  const lastSignIn = user?.last_sign_in_at
-    ? new Date(user.last_sign_in_at).toLocaleString('en-IN', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
-    : 'Unknown'
-
   if (loading) {
     return <SettingsSkeleton />
   }
@@ -294,7 +278,7 @@ export default function Settings() {
       <div className="page-header">
         <div>
           <h2>Settings</h2>
-          <p>Manage settings and account security</p>
+          <p>Manage your account, security, subscription, and preferences</p>
         </div>
       </div>
 
@@ -312,527 +296,85 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Subscription & Billing Section */}
-      <div className="security-section">
-        <div className="card">
-          <div className="security-section-header">
-            <div className="security-section-icon indigo" style={{ background: 'var(--indigo-bg)', color: 'var(--indigo)' }}>
-              <CreditCard size={20} />
-            </div>
-            <div>
-              <div className="security-section-title">Subscription & Billing</div>
-              <div className="security-section-desc">Manage your plan and billing preferences</div>
-            </div>
-          </div>
-
-          {/* Plan Status */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '16px',
-            background: isPro ? 'linear-gradient(135deg, rgba(254, 243, 199, 0.45), rgba(253, 230, 138, 0.25))' : (isTrial ? 'linear-gradient(135deg, #eff6ff, #f5f3ff)' : 'var(--bg-secondary)'),
-            border: `1px solid ${isPro ? '#fde68a' : (isTrial ? '#c7d2fe' : 'var(--border-primary)')}`,
-            borderRadius: 'var(--radius-md)',
-            marginBottom: 16
-          }}>
-            <div
-              className={isPro ? 'pro-icon-gold-shine' : ''}
+      {/* Tab Navigation Pill Bar */}
+      <div style={{
+        display: 'flex',
+        gap: 8,
+        marginBottom: 24,
+        borderBottom: '1px solid var(--border-primary)',
+        paddingBottom: 12,
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}>
+        {TABS.map(tab => {
+          const Icon = tab.icon
+          const isActive = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
               style={{
-                width: 42, height: 42, borderRadius: 10,
-                background: isPro ? 'linear-gradient(135deg, #f59e0b, #d97706)' : (isTrial ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : '#e2e8f0'),
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: isPro ? '0 2px 8px rgba(217, 119, 6, 0.25)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '9px 18px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.825rem',
+                fontWeight: isActive ? 700 : 500,
+                border: isActive ? '1px solid transparent' : '1px solid var(--border-color)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+                background: isActive ? 'var(--accent-gradient)' : 'var(--bg-secondary)',
+                color: isActive ? '#ffffff' : 'var(--text-primary)',
+                boxShadow: isActive ? 'var(--shadow-glow)' : 'var(--shadow-sm)',
               }}
             >
-              {isPro ? <Crown size={22} color="white" /> : (isTrial ? <Zap size={20} color="white" /> : <User size={20} color="#64748b" />)}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                {isPro && !isTrial ? 'Pro Plan' : isTrial ? 'Pro Trial' : 'Free Plan'}
-                <span style={{
-                  padding: '2px 8px', borderRadius: 4,
-                  background: isPro ? '#fef3c7' : (isTrial ? '#e0e7ff' : '#f1f5f9'),
-                  color: isPro ? '#b45309' : (isTrial ? '#4f46e5' : '#64748b'),
-                  fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  border: isPro ? '1px solid rgba(245, 158, 11, 0.35)' : 'none'
-                }}>
-                  {isPro && !isTrial ? 'Active' : isTrial ? `${trialDaysLeft} days left` : 'Current'}
-                </span>
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                {isPro && !isTrial
-                  ? (currentPeriodEnd
-                      ? `${subBillingCycle === 'annual' ? 'Annual' : 'Monthly'} · Renews ${new Date(currentPeriodEnd).toLocaleDateString('en-IN', { dateStyle: 'medium' })}`
-                      : 'Unlimited accounts · Unlimited shared links · PDF Statements')
-                  : isTrial
-                  ? 'Enjoy full Pro features during your trial period'
-                  : '10 accounts · 3 shared links · Fault reconciliation'
-                }
-              </div>
-            </div>
-            {!isPro && (
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowUpgradeModal(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
-              >
-                <Crown size={14} /> Upgrade to Pro
-              </button>
-            )}
-          </div>
-
-          {/* Quick Plan Features */}
-          {!isPro && (
-            <div style={{
-              padding: '12px 16px',
-              background: 'var(--bg-secondary)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.72rem', color: 'var(--text-secondary)',
-              lineHeight: 1.7,
-            }}>
-              <strong style={{ color: 'var(--text-primary)' }}>Unlock with Pro:</strong> Unlimited accounts, unlimited shared links, PDF reports, budget benchmarks &amp; priority support — starting at just ₹149/month.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Invoices & Billing History Section (Default Collapsed) */}
-      <div className="security-section">
-        <div className="card" style={{ transition: 'all 0.2s' }}>
-          <div
-            className="security-section-header"
-            onClick={() => setShowInvoices(!showInvoices)}
-            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showInvoices ? 16 : 0, justifyContent: 'space-between' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="security-section-icon indigo" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706' }}>
-                <Receipt size={20} />
-              </div>
-              <div>
-                <div className="security-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span>Invoices &amp; Payment Receipts</span>
-                  {receipts && receipts.length > 0 && (
-                    <span className="badge badge-amber" style={{ fontSize: '0.62rem', padding: '1px 8px' }}>
-                      {receipts.length} Receipt{receipts.length > 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-                <div className="security-section-desc">Download official PDF tax receipts for your Accountize subscription payments</div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
-              onClick={(e) => { e.stopPropagation(); setShowInvoices(!showInvoices); }}
-            >
-              {showInvoices ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
+              <Icon size={16} />
+              <span>{tab.label}</span>
             </button>
-          </div>
-
-          {showInvoices && (
-            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
-              {receipts && receipts.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {receipts.map(rcpt => (
-                    <div key={rcpt.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 16px', background: 'var(--bg-secondary)',
-                      borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)',
-                      transition: 'all 0.2s'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div className="pro-icon-gold-shine" style={{
-                          width: 38, height: 38, borderRadius: 10,
-                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
-                          <Receipt size={18} color="white" />
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.825rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span>{rcpt.receipt_number}</span>
-                            <span className="badge badge-green" style={{ fontSize: '0.6rem', padding: '1px 6px' }}>PAID</span>
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                            {rcpt.billing_cycle === 'annual' ? 'Annual Pro Plan' : 'Monthly Pro Plan'} · {new Date(rcpt.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                          ₹{rcpt.amount}
-                        </span>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', padding: '6px 12px', fontWeight: 600 }}
-                          onClick={() => exportPaymentInvoicePDF({ receipt: rcpt, user })}
-                          title="Download PDF Tax Invoice"
-                        >
-                          <Download size={14} /> PDF Invoice
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{
-                  padding: '24px 16px', background: 'var(--bg-secondary)',
-                  borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)',
-                  fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
-                }}>
-                  <Receipt size={24} style={{ opacity: 0.5, color: '#d97706' }} />
-                  <div>No billing receipts found yet. Upgrading to Pro will automatically generate downloadable PDF tax invoices here.</div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          )
+        })}
       </div>
 
-      {/* Password & Credentials Section (Default Collapsed) */}
-      <div className="security-section">
-        <div className="card" style={{ transition: 'all 0.2s' }}>
-          <div
-            className="security-section-header"
-            onClick={() => setShowPasswordSection(!showPasswordSection)}
-            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showPasswordSection ? 16 : 0, justifyContent: 'space-between' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="security-section-icon indigo" style={{ background: 'var(--indigo-bg)', color: 'var(--indigo)' }}>
-                <KeyRound size={20} />
-              </div>
-              <div>
-                <div className="security-section-title">Password &amp; Account Credentials</div>
-                <div className="security-section-desc">
-                  {isGoogleOnly
-                    ? 'Your account was created via Google OAuth. Set a password to enable direct email login.'
-                    : 'Manage or update your account password for secure login'
-                  }
-                </div>
-              </div>
-            </div>
+      {/* Active Tab View */}
+      {activeTab === 'account' && (
+        <AccountTab
+          user={user}
+          signOut={signOut}
+        />
+      )}
 
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
-              onClick={(e) => { e.stopPropagation(); setShowPasswordSection(!showPasswordSection); }}
-            >
-              {showPasswordSection ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
-            </button>
-          </div>
+      {activeTab === 'security' && (
+        <SecurityTab
+          user={user}
+          updatePassword={updatePassword}
+          loading={loading}
+          hasMFA={hasMFA}
+          verifiedFactors={verifiedFactors}
+          handleStartEnroll={handleStartEnroll}
+          setDeleteConfirm={setDeleteConfirm}
+        />
+      )}
 
-          {showPasswordSection && (
-            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
-              {passMsg && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 14px', background: '#ecfdf5', border: '1px solid #a7f3d0',
-                  borderRadius: 'var(--radius-md)', fontSize: '0.75rem', color: '#047857',
-                  marginBottom: 16
-                }}>
-                  <CheckCircle2 size={16} />
-                  <span>{passMsg}</span>
-                </div>
-              )}
+      {activeTab === 'billing' && (
+        <BillingTab
+          subscription={subscription}
+          setShowUpgradeModal={setShowUpgradeModal}
+          user={user}
+        />
+      )}
 
-              {passErr && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca',
-                  borderRadius: 'var(--radius-md)', fontSize: '0.75rem', color: '#dc2626',
-                  marginBottom: 16
-                }}>
-                  <AlertCircle size={16} />
-                  <span>{passErr}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                      {isGoogleOnly ? 'Create New Password' : 'New Password'}
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={showPass ? 'text' : 'password'}
-                        className="form-input"
-                        placeholder="Enter password (min 6 chars)"
-                        value={newPass}
-                        onChange={e => setNewPass(e.target.value)}
-                        style={{ paddingRight: 36, width: '100%' }}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPass(!showPass)}
-                        style={{
-                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                          background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
-                          padding: 2
-                        }}
-                      >
-                        {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                      Confirm Password
-                    </label>
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      className="form-input"
-                      placeholder="Re-enter password"
-                      value={confirmPass}
-                      onChange={e => setConfirmPass(e.target.value)}
-                      style={{ width: '100%' }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Lock size={12} /> Encrypted using Supabase Argon2 / bcrypt hashing
-                  </div>
-                  <button
-                    type="submit"
-                    className="btn btn-primary btn-sm"
-                    disabled={passLoading}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                  >
-                    <KeyRound size={14} />
-                    {passLoading ? 'Saving...' : (isGoogleOnly ? 'Set Password & Enable Email Login' : 'Update Password')}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Referral Section (Default Collapsed) */}
-      <div className="security-section">
-        <ReferralCard defaultCollapsed={true} />
-      </div>
-
-      {/* MFA Section (Default Collapsed) */}
-      <div className="security-section">
-        <div className="card" style={{ transition: 'all 0.2s' }}>
-          <div
-            className="security-section-header"
-            onClick={() => setShowMfaSection(!showMfaSection)}
-            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showMfaSection ? 16 : 0, justifyContent: 'space-between' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="security-section-icon indigo">
-                <Shield size={20} />
-              </div>
-              <div>
-                <div className="security-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span>Two-Factor Authentication</span>
-                  {hasMFA && (
-                    <span className="badge badge-green" style={{ fontSize: '0.62rem', padding: '1px 8px' }}>
-                      Active
-                    </span>
-                  )}
-                </div>
-                <div className="security-section-desc">Add an extra layer of security with a TOTP authenticator app</div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
-              onClick={(e) => { e.stopPropagation(); setShowMfaSection(!showMfaSection); }}
-            >
-              {showMfaSection ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
-            </button>
-          </div>
-
-          {showMfaSection && (
-            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
-              {loading ? (
-                <div style={{ padding: '20px 0' }}>
-                  <div className="skeleton" style={{ height: 60, width: '100%' }} />
-                </div>
-              ) : hasMFA ? (
-                // MFA is active
-                <div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '16px',
-                    background: 'var(--green-bg)',
-                    border: '1px solid var(--green-border)',
-                    borderRadius: 'var(--radius-md)',
-                    marginBottom: 16
-                  }}>
-                    <ShieldCheck size={20} color="var(--green)" />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--green)' }}>
-                        MFA is Active
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        Your account is protected with two-factor authentication
-                      </div>
-                    </div>
-                  </div>
-
-                  {verifiedFactors.map(factor => (
-                    <div key={factor.id} className="security-item">
-                      <div className="security-item-info">
-                        <div className="security-item-icon" style={{ background: 'var(--indigo-bg)', color: 'var(--indigo)' }}>
-                          <Smartphone size={18} />
-                        </div>
-                        <div className="security-item-text">
-                          <h4>{factor.friendly_name || 'Authenticator App'}</h4>
-                          <p>Added {new Date(factor.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</p>
-                        </div>
-                      </div>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => setDeleteConfirm({ id: factor.id, name: factor.friendly_name || 'Authenticator App' })}
-                      >
-                        <Trash2 size={14} /> Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                // MFA not set up
-                <div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '16px',
-                    background: 'var(--amber-bg)',
-                    border: '1px solid var(--amber-border)',
-                    borderRadius: 'var(--radius-md)',
-                    marginBottom: 16
-                  }}>
-                    <ShieldAlert size={20} color="var(--amber)" />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--amber)' }}>
-                        MFA Not Enabled
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        Enable MFA to protect your financial data with a second layer of security
-                      </div>
-                    </div>
-                  </div>
-
-                  <button className="btn btn-primary" onClick={handleStartEnroll}>
-                    <Shield size={16} /> Enable Two-Factor Authentication
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Account Info Section (Default Collapsed) */}
-      <div className="security-section">
-        <div className="card" style={{ transition: 'all 0.2s' }}>
-          <div
-            className="security-section-header"
-            onClick={() => setShowAccountInfo(!showAccountInfo)}
-            style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showAccountInfo ? 16 : 0, justifyContent: 'space-between' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="security-section-icon blue">
-                <User size={20} />
-              </div>
-              <div>
-                <div className="security-section-title">Account Information</div>
-                <div className="security-section-desc">Your sign-in details and session info</div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: '0.75rem', borderRadius: 20 }}
-              onClick={(e) => { e.stopPropagation(); setShowAccountInfo(!showAccountInfo); }}
-            >
-              {showAccountInfo ? <>Hide <ChevronUp size={14} /></> : <>View <ChevronDown size={14} /></>}
-            </button>
-          </div>
-
-          {showAccountInfo && (
-            <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
-              <div className="security-item">
-                <div className="security-item-info">
-                  <div className="security-item-icon" style={{ background: 'var(--blue-bg)', color: 'var(--blue)' }}>
-                    <Mail size={18} />
-                  </div>
-                  <div className="security-item-text">
-                    <h4>Email</h4>
-                    <p>{user?.email || 'Not available'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="security-item">
-                <div className="security-item-info">
-                  <div className="security-item-icon" style={{ background: 'var(--purple-bg)', color: 'var(--purple)' }}>
-                    <KeyRound size={18} />
-                  </div>
-                  <div className="security-item-text">
-                    <h4>Login Method</h4>
-                    <p style={{ textTransform: 'capitalize' }}>{loginProvider}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="security-item">
-                <div className="security-item-info">
-                  <div className="security-item-icon" style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
-                    <Clock size={18} />
-                  </div>
-                  <div className="security-item-text">
-                    <h4>Last Sign In</h4>
-                    <p>{lastSignIn}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Logout Section */}
-      <div className="security-section">
-        <div className="card">
-          <div className="security-section-header">
-            <div className="security-section-icon red" style={{ background: 'var(--red-bg)', color: 'var(--red)' }}>
-              <LogOut size={20} />
-            </div>
-            <div>
-              <div className="security-section-title">Sign Out</div>
-              <div className="security-section-desc">Sign out of your Accountize session on this device</div>
-            </div>
-          </div>
-          <button 
-            className="btn btn-danger" 
-            onClick={signOut}
-            style={{ alignSelf: 'flex-start', marginTop: 12 }}
-          >
-            <LogOut size={16} /> Log Out
-          </button>
-        </div>
-      </div>
+      {activeTab === 'system' && (
+        <SystemTab
+          handleHardRefresh={handleHardRefresh}
+          hardRefreshing={hardRefreshing}
+          refreshSuccess={refreshSuccess}
+          setShowSupportModal={setShowSupportModal}
+          setShowPrivacyModal={setShowPrivacyModal}
+          setShowTermsModal={setShowTermsModal}
+        />
+      )}
 
       {/* MFA Enrollment Modal */}
       {enrolling && enrollData && (
@@ -945,42 +487,6 @@ export default function Settings() {
           )}
         </Modal>
       )}
-
-      {/* Legal & Support Section */}
-      <div className="security-section" style={{ marginTop: 24 }}>
-        <div className="card">
-          <div className="security-section-header">
-            <div className="security-section-icon blue" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
-              <HelpCircle size={20} />
-            </div>
-            <div>
-              <div className="security-section-title">Support &amp; Legal</div>
-              <div className="security-section-desc">Get assistance or view legal policies and terms</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16 }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowSupportModal(true)}
-            >
-              <MessageSquare size={16} /> Contact Support
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowPrivacyModal(true)}
-            >
-              <Lock size={16} /> Privacy Policy
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowTermsModal(true)}
-            >
-              <FileText size={16} /> Terms of Service
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Contact Support Modal */}
       {showSupportModal && (
@@ -1096,7 +602,7 @@ export default function Settings() {
         </Modal>
       )}
 
-      {/* Confirm Remove MFA */}
+      {/* Confirm Remove MFA Modal */}
       {deleteConfirm && (
         <ConfirmModal
           title="Disable Two-Factor Authentication?"

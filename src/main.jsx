@@ -11,8 +11,7 @@ import { logError, trackEvent } from './lib/analytics'
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
-    // New service worker available — force update immediately to prevent
-    // stale chunk references that cause white screens on app reopen
+    // Force update service worker immediately when new build is deployed
     updateSW(true)
   },
   onOfflineReady() {
@@ -20,6 +19,24 @@ const updateSW = registerSW({
   },
   onRegisterError(error) {
     console.error('[PWA] Service worker registration failed:', error)
+  }
+})
+
+// Auto-reload page when new deployment service worker takes control
+let refreshing = false
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true
+      window.location.reload()
+    }
+  })
+}
+
+// Re-check for new deployment when user switches back to the app tab
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    updateSW(true)
   }
 })
 

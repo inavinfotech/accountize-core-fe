@@ -128,6 +128,7 @@ export async function updateAccount(id, updates) {
 export function isDefaultAccount(account) {
   if (!account) return false
   if (account.type !== 'self') return false
+  if (['cash', 'online', 'expense'].includes(account.subtype)) return true
   const nameLower = (account.name || '').trim().toLowerCase()
   return (
     nameLower === 'cash in hand' ||

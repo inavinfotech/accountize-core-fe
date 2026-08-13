@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDataStore } from '../lib/useDataStore.jsx'
-import { createAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, verifyTransaction, rejectTransaction, isDefaultAccount, getActiveSharedLinksCount } from '../lib/db'
+import { createAccount, updateAccount, deleteAccount, createTransaction, deleteTransaction, updateTransaction, createSharedLink, deleteSharedLink, getSharedLink, verifyTransaction, rejectTransaction, isDefaultAccount, getActiveSharedLinksCount } from '../lib/db'
 import { useSubscription } from '../context/SubscriptionContext'
 import UpgradeModal from '../components/UpgradeModal'
 import { formatCurrency, getAmountClass, getInitials, formatDate, formatTransactionCreatedAt } from '../lib/utils'
@@ -12,7 +12,7 @@ import InfoButton from '../components/InfoButton'
 import {
   Plus, Trash2, Users, ArrowUpRight, ArrowDownRight, 
   UserPlus, Wallet, ChevronDown, ChevronUp, Receipt, Download,
-  Share2, LinkIcon, Link2Off, Check, Copy, X, Lock
+  Share2, LinkIcon, Link2Off, Check, Copy, X, Lock, Pencil
 } from 'lucide-react'
 
 export default function Accounts() {
@@ -35,6 +35,7 @@ export default function Accounts() {
   }, [searchParams])
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [editingTransaction, setEditingTransaction] = useState(null)
+  const [editingAccount, setEditingAccount] = useState(null)
   const [sharingAccount, setSharingAccount] = useState(null) // { accountId, token, loading, copied }
   // Use store-level shared links — local copy for UI state
   const sharedLinks = storeSharedLinks
@@ -96,6 +97,35 @@ export default function Accounts() {
     } catch (err) {
       console.error('Failed to delete account:', err)
     }
+  }
+
+  async function handleEditAccount(e) {
+    e.preventDefault()
+    if (!editingAccount || !editingAccount.name.trim()) return
+    try {
+      const updates = {
+        name: editingAccount.name.trim()
+      }
+      if (!isDefaultAccount(editingAccount)) {
+        updates.type = editingAccount.type
+        updates.subtype = editingAccount.type === 'self' ? (editingAccount.subtype || 'cash') : 'other'
+      }
+      await updateAccount(editingAccount.id, updates)
+      setEditingAccount(null)
+      triggerRefresh()
+    } catch (err) {
+      console.error('Failed to edit account:', err)
+    }
+  }
+
+  const handleOpenAddAccount = () => {
+    const defaultType = ['receivable', 'payable', 'self'].includes(activeTab) ? activeTab : 'receivable'
+    setNewAccount({
+      name: '',
+      type: defaultType,
+      subtype: defaultType === 'self' ? 'cash' : 'other'
+    })
+    setShowAddAccount(true)
   }
 
   const getDefaultDate = () => {
@@ -374,7 +404,7 @@ export default function Accounts() {
           <h2>Accounts</h2>
           <p>Manage people and money flow</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddAccount(true)}>
+        <button className="btn btn-primary" onClick={handleOpenAddAccount}>
           <UserPlus size={16} /> Add Account
         </button>
       </div>
@@ -452,6 +482,22 @@ export default function Accounts() {
                     <div className="account-name-container">
                       <div className="account-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {account.name}
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingAccount({
+                              id: account.id,
+                              name: account.name,
+                              type: account.type,
+                              subtype: account.subtype || 'cash'
+                            })
+                          }}
+                          title="Edit Account Name"
+                          style={{ padding: '2px 4px', height: 'auto', display: 'inline-flex', opacity: 0.7 }}
+                        >
+                          <Pencil size={12} />
+                        </button>
                         {isLinked && (
                           <span style={{ fontSize: '0.6rem', fontWeight: 600, background: 'var(--indigo-bg)', color: 'var(--indigo)', border: '1px solid var(--indigo-border)', padding: '1px 6px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                             <Users size={8} /> Linked
@@ -671,22 +717,34 @@ export default function Accounts() {
                          )}
                        </>
                      )}
-                     {!isDefaultAccount(account) && (
-                        <button
-                          className="btn btn-danger btn-sm btn-mobile-icon"
-                          onClick={() => setDeleteConfirm({
-                            type: 'account',
-                            id: account.id,
-                            label: account.name
-                          })}
-                          title="Delete Account"
-                        >
-                          <Trash2 size={14} /> <span className="btn-text">Delete</span>
-                        </button>
-                      )}
-                   </div>
-                </div>
-              )}
+                      <button
+                        className="btn btn-secondary btn-sm btn-mobile-icon"
+                        onClick={() => setEditingAccount({
+                          id: account.id,
+                          name: account.name,
+                          type: account.type,
+                          subtype: account.subtype || 'cash'
+                        })}
+                        title="Edit Account"
+                      >
+                        <Pencil size={14} /> <span className="btn-text">Edit</span>
+                      </button>
+                      {!isDefaultAccount(account) && (
+                         <button
+                           className="btn btn-danger btn-sm btn-mobile-icon"
+                           onClick={() => setDeleteConfirm({
+                             type: 'account',
+                             id: account.id,
+                             label: account.name
+                           })}
+                           title="Delete Account"
+                         >
+                           <Trash2 size={14} /> <span className="btn-text">Delete</span>
+                         </button>
+                       )}
+                    </div>
+                  </div>
+                )}
             </div>
           );
         })}
@@ -745,6 +803,70 @@ export default function Accounts() {
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowAddAccount(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary">Create Account</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Account Modal */}
+      {editingAccount && (
+        <Modal title="Edit Account" onClose={() => setEditingAccount(null)}>
+          <form onSubmit={handleEditAccount}>
+            <div className="form-group">
+              <label htmlFor="edit-acc-name" className="form-label">Account Name</label>
+              <input
+                id="edit-acc-name"
+                className="form-input"
+                placeholder="Account name..."
+                value={editingAccount.name}
+                onChange={e => setEditingAccount({ ...editingAccount, name: e.target.value })}
+                required
+                autoFocus
+              />
+            </div>
+            {isDefaultAccount(editingAccount) ? (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 16, background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
+                Default system account type &amp; subtype are locked for balance tracking, but you can customize the display name.
+              </div>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label htmlFor="edit-acc-type" className="form-label">Type</label>
+                  <select
+                    id="edit-acc-type"
+                    className="form-select"
+                    value={editingAccount.type}
+                    onChange={e => {
+                      const type = e.target.value
+                      setEditingAccount({ ...editingAccount, type, subtype: type === 'self' ? (editingAccount.subtype || 'cash') : 'other' })
+                    }}
+                  >
+                    <option value="receivable">Receivable (they owe me)</option>
+                    <option value="payable">Payable (I owe them)</option>
+                    <option value="self">Wallets &amp; Banks (Cash / Online)</option>
+                  </select>
+                </div>
+                {editingAccount.type === 'self' && (
+                  <div className="form-group">
+                    <label htmlFor="edit-acc-subtype" className="form-label">Subtype</label>
+                    <select
+                      id="edit-acc-subtype"
+                      className="form-select"
+                      value={editingAccount.subtype || 'cash'}
+                      onChange={e => setEditingAccount({ ...editingAccount, subtype: e.target.value })}
+                    >
+                      <option value="cash">Cash in Hand</option>
+                      <option value="online">Online Balance (e.g. UPI, Wallets)</option>
+                      <option value="bank">Bank Account</option>
+                      <option value="expense">Expense Pool</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingAccount(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Save Changes</button>
             </div>
           </form>
         </Modal>

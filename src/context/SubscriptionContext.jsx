@@ -120,7 +120,7 @@ export function SubscriptionProvider({ children }) {
   }, [fetchSubscription, fetchReceipts])
 
   // Upgrade subscription after successful payment
-  const upgradeToProAfterPayment = useCallback(async (billingCycle, paymentOrderId, paymentId) => {
+  const upgradeToProAfterPayment = useCallback(async (billingCycle, paymentOrderId, paymentId, paidAmountRupees = null) => {
     if (!user) return
 
     const now = new Date()
@@ -153,7 +153,10 @@ export function SubscriptionProvider({ children }) {
 
     // Auto-create payment receipt record
     const receiptNo = `INV-${now.toISOString().slice(0, 7).replace('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`
-    const amount = billingCycle === 'annual' ? 1499 : 149
+    const defaultAmount = billingCycle === 'annual' ? 1199 : 149
+    const amount = (paidAmountRupees != null && !isNaN(Number(paidAmountRupees)) && Number(paidAmountRupees) > 0)
+      ? Number(paidAmountRupees)
+      : defaultAmount
 
     try {
       await supabase.from('payment_receipts').insert({

@@ -487,21 +487,74 @@ export function exportPaymentInvoicePDF({ receipt, user }) {
     // Invoice Meta Grid
     let startY = 38
 
+    // Construct billed to lines dynamically based on saved billing_details
+    const billing = receipt.billing_details || null
+    let billedToLines = []
+    if (billing) {
+      if (billing.businessName) {
+        billedToLines.push(billing.businessName)
+        if (billing.name) billedToLines.push(`Attn: ${billing.name}`)
+      } else if (billing.name) {
+        billedToLines.push(billing.name)
+      } else {
+        billedToLines.push(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Accountize Subscriber')
+      }
+
+      if (billing.gstin) {
+        billedToLines.push(`GSTIN: ${billing.gstin.toUpperCase()}`)
+      }
+
+      if (billing.address) {
+        let addrStr = billing.address
+        if (billing.city) addrStr += `, ${billing.city}`
+        if (billing.state) addrStr += `, ${billing.state}`
+        if (billing.pincode) addrStr += ` - ${billing.pincode}`
+        billedToLines.push(addrStr)
+      }
+
+      billedToLines.push(`Email: ${billing.email || user?.email || 'N/A'}`)
+      if (billing.phone) {
+        billedToLines.push(`Phone: ${billing.phone}`)
+      }
+    } else {
+      // Fallback to default user profile name and email
+      billedToLines.push(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Accountize Subscriber')
+      billedToLines.push(`Email: ${user?.email || 'N/A'}`)
+    }
+
     // Left Column: Billed To
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...mutedColor)
     doc.text('BILLED TO', 14, startY)
 
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...primaryColor)
-    doc.text(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Accountize Subscriber', 14, startY + 6)
-
+    let leftY = startY + 6
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...mutedColor)
-    doc.text(user?.email || 'N/A', 14, startY + 12)
+    doc.setTextColor(...primaryColor)
+
+    billedToLines.forEach((line, idx) => {
+      if (idx === 0) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.text(line, 14, leftY)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8.5)
+        doc.setTextColor(...mutedColor)
+      } else {
+        if (line.length > 55) {
+          const splitLines = doc.splitTextToSize(line, 80)
+          splitLines.forEach((sLine) => {
+            doc.text(sLine, 14, leftY)
+            leftY += 4.5
+          })
+          leftY -= 4.5
+        } else {
+          doc.text(line, 14, leftY)
+        }
+      }
+      leftY += 4.5
+    })
 
     // Right Column: Invoice Details
     doc.setFontSize(9)
@@ -509,53 +562,92 @@ export function exportPaymentInvoicePDF({ receipt, user }) {
     doc.setTextColor(...mutedColor)
     doc.text('INVOICE DETAILS', pageWidth - 14, startY, { align: 'right' })
 
+    let rightY = startY + 6
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...primaryColor)
-    doc.text(`Receipt #: ${receiptNo}`, pageWidth - 14, startY + 6, { align: 'right' })
-    doc.text(`Date: ${createdDate}`, pageWidth - 14, startY + 11, { align: 'right' })
+    doc.text(`Receipt #: ${receiptNo}`, pageWidth - 14, rightY, { align: 'right' })
+    rightY += 5
+    doc.text(`Date: ${createdDate}`, pageWidth - 14, rightY, { align: 'right' })
+    rightY += 5
     if (receipt.payment_order_id) {
-      doc.text(`Order ID: ${receipt.payment_order_id}`, pageWidth - 14, startY + 16, { align: 'right' })
+      doc.text(`Order ID: ${receipt.payment_order_id}`, pageWidth - 14, rightY, { align: 'right' })
+      rightY += 5
     }
 
-    startY += 26
+    startY = Math.max(leftY, rightY) + 6
+
+    // Parse prices
+    let basePriceVal = 0
+    let feeVal = 0
+    let totalVal = Number(receipt.amount) || 0
+
+    if (billing && billing.basePrice !== undefined) {
+      basePriceVal = Number(billing.basePrice)
+      feeVal = Number(billing.transactionFee)
+      totalVal = Number(billing.totalPrice)
+    } else {
+      // Estimate base and fee for legacy transactions (fee is 2% of total)
+      basePriceVal = Math.round((totalVal * 0.98) * 100) / 100
+      feeVal = Math.round((totalVal - basePriceVal) * 100) / 100
+    }
 
     // Items Table
     autoTable(doc, {
       startY: startY,
-      head: [['Item Description', 'Billing Cycle', 'Status', 'Amount Paid']],
+      head: [['Item Description', 'Billing Cycle', 'Status', 'Amount']],
       body: [
         [
           planName,
           receipt.billing_cycle === 'annual' ? '12 Months' : '1 Month',
           'PAID',
-          formattedTotal
+          formatPdfCurrency(basePriceVal)
         ]
       ],
       theme: 'striped',
       headStyles: { fillStyle: 'F', fillColor: primaryColor, textColor: 255, fontSize: 8.5, fontStyle: 'bold' },
       bodyStyles: { fontSize: 8.5, textColor: [30, 41, 59] },
       alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: { 3: { halign: 'right', fontStyle: 'bold', textColor: accentColor } },
+      columnStyles: { 3: { halign: 'right', fontStyle: 'bold', textColor: [30, 41, 59] } },
       margin: { left: 14, right: 14 }
     })
 
-    const finalY = doc.lastAutoTable.finalY + 12
+    const finalY = doc.lastAutoTable.finalY + 8
 
     // Summary Box
+    const boxWidth = 84
+    const boxHeight = 28
+    const boxX = pageWidth - boxWidth - 14
+
     doc.setFillColor(248, 250, 252)
     doc.setDrawColor(...borderColor)
-    doc.roundedRect(pageWidth - 84, finalY, 70, 24, 2, 2, 'FD')
+    doc.roundedRect(boxX, finalY, boxWidth, boxHeight, 2, 2, 'FD')
 
-    doc.setFontSize(9)
+    doc.setFontSize(8.5)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...mutedColor)
-    doc.text('Total Paid:', pageWidth - 80, finalY + 14)
+    doc.text('Base Price:', boxX + 4, finalY + 7)
+    doc.text('Gateway Fee (2%):', boxX + 4, finalY + 13)
+    
+    // Separator line
+    doc.setDrawColor(...borderColor)
+    doc.setLineWidth(0.15)
+    doc.line(boxX, finalY + 17, boxX + boxWidth, finalY + 17)
 
-    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text('Total Paid:', boxX + 4, finalY + 23)
+
+    // Values (right-aligned)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(30, 41, 59)
+    doc.text(formatPdfCurrency(basePriceVal), pageWidth - 18, finalY + 7, { align: 'right' })
+    doc.text(formatPdfCurrency(feeVal), pageWidth - 18, finalY + 13, { align: 'right' })
+    
+    doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...accentColor)
-    doc.text(formattedTotal, pageWidth - 18, finalY + 14, { align: 'right' })
+    doc.text(formatPdfCurrency(totalVal), pageWidth - 18, finalY + 23, { align: 'right' })
 
     // Footer
     doc.setDrawColor(...borderColor)

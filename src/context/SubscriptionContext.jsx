@@ -120,7 +120,7 @@ export function SubscriptionProvider({ children }) {
   }, [fetchSubscription, fetchReceipts])
 
   // Upgrade subscription after successful payment
-  const upgradeToProAfterPayment = useCallback(async (billingCycle, paymentOrderId, paymentId, paidAmountRupees = null) => {
+  const upgradeToProAfterPayment = useCallback(async (billingCycle, paymentOrderId, paymentId, paidAmountRupees = null, billingDetails = null) => {
     if (!user) return
 
     const now = new Date()
@@ -168,6 +168,7 @@ export function SubscriptionProvider({ children }) {
         currency: 'INR',
         payment_order_id: paymentOrderId,
         payment_id: paymentId,
+        billing_details: billingDetails,
         created_at: now.toISOString()
       })
     } catch (rErr) {

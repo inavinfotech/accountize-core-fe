@@ -199,7 +199,26 @@ export default function UpgradeModal({ isOpen, onClose, triggerReason }) {
       onSuccess: async ({ orderId, paymentId, billingCycle: cycle, amountPaid }) => {
         try {
           analytics.paymentCompleted(orderId, paymentId, cycle, pricing.totalPaise)
-          await upgradeToProAfterPayment(cycle, orderId, paymentId, amountPaid || pricing.totalPrice)
+          await upgradeToProAfterPayment(
+            cycle,
+            orderId,
+            paymentId,
+            amountPaid || pricing.totalPrice,
+            {
+              name: billingDetails.name.trim(),
+              email: billingDetails.email.trim(),
+              phone: billingDetails.phone.trim(),
+              address: billingDetails.address.trim(),
+              city: billingDetails.city.trim(),
+              state: billingDetails.state.trim(),
+              pincode: billingDetails.pincode.trim(),
+              gstin: showBusinessFields ? billingDetails.gstin.trim().toUpperCase() : '',
+              businessName: showBusinessFields ? billingDetails.businessName.trim() : '',
+              basePrice: pricing.basePrice,
+              transactionFee: pricing.transactionFee,
+              totalPrice: pricing.totalPrice
+            }
+          )
           setStep('success')
           setPaymentLoading(false)
         } catch (err) {

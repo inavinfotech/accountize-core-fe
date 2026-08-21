@@ -19,28 +19,10 @@ export default function ServiceBlockScreen({
   // Detect if message contains HTML markup
   const isHtml = message && /<[a-z][\s\S]*>/i.test(message)
 
-  // Re-execute embedded <script> tags when custom HTML is mounted
-  useEffect(() => {
-    if (isHtml && message) {
-      const timer = setTimeout(() => {
-        const container = document.querySelector('.service-block-raw-html')
-        if (container) {
-          const scripts = container.querySelectorAll('script')
-          scripts.forEach(oldScript => {
-            const newScript = document.createElement('script')
-            Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
-            newScript.appendChild(document.createTextNode(oldScript.innerHTML))
-            if (oldScript.parentNode) {
-              oldScript.parentNode.replaceChild(newScript, oldScript)
-            }
-          })
-        }
-      }, 50)
-      return () => clearTimeout(timer)
-    }
-  }, [isHtml, message])
+  // Strip inline <script> tags for security
+  const safeMessage = message ? message.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') : ''
 
-  // Full-Screen Raw HTML mode (No default popup card)
+  // Full-Screen HTML mode (No default popup card)
   if (isHtml) {
     return (
       <div className="service-block-fullscreen-html">
@@ -63,7 +45,7 @@ export default function ServiceBlockScreen({
         {/* Direct Full-Screen HTML Output */}
         <div
           className="service-block-raw-html"
-          dangerouslySetInnerHTML={{ __html: message }}
+          dangerouslySetInnerHTML={{ __html: safeMessage }}
         />
       </div>
     )

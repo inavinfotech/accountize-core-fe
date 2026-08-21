@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
@@ -178,7 +178,7 @@ export function SubscriptionProvider({ children }) {
     await refreshSubscription()
   }, [user, refreshSubscription])
 
-  const value = {
+  const value = useMemo(() => ({
     subscription,
     receipts,
     loading: loading,
@@ -193,7 +193,7 @@ export function SubscriptionProvider({ children }) {
     currentPeriodEnd: subscription?.currentPeriodEnd,
     refreshSubscription,
     upgradeToProAfterPayment,
-  }
+  }), [subscription, receipts, loading, refreshSubscription, upgradeToProAfterPayment])
 
   return (
     <SubscriptionContext.Provider value={value}>

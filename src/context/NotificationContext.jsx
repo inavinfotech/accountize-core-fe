@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
@@ -246,17 +246,19 @@ export function NotificationProvider({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
+  const value = useMemo(() => ({
+    notifications,
+    unreadCount,
+    toasts,
+    addNotification,
+    addToast,
+    markAsRead,
+    markAllAsRead,
+    clearAll
+  }), [notifications, unreadCount, toasts, addNotification, addToast, markAsRead, markAllAsRead, clearAll])
+
   return (
-    <NotificationContext.Provider value={{
-      notifications,
-      unreadCount,
-      toasts,
-      addNotification,
-      addToast,
-      markAsRead,
-      markAllAsRead,
-      clearAll
-    }}>
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   )

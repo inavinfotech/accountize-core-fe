@@ -88,7 +88,10 @@ export async function getAccounts() {
       .order('name')
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -173,7 +176,10 @@ export async function getTransactions(monthYear) {
     const { data, error } = await query
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -197,7 +203,10 @@ export async function getTransactionsByAccount(accountId, monthYear) {
     const { data, error } = await query
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -266,7 +275,10 @@ export async function getExpenses(monthYear) {
     const { data, error } = await query
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -346,7 +358,10 @@ export async function getMonthlySummary(monthYear) {
       .maybeSingle()
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -493,7 +508,10 @@ export async function getAccountBalances(monthYear) {
     })
     
     return balances
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -587,7 +605,10 @@ export async function getDashboardData(monthYear) {
       summary,
       missingDefaults,
     }
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -654,7 +675,10 @@ export async function getSetting(key, defaultValue = '') {
       console.warn(`Settings query for '${key}' failed:`, err)
       return defaultValue
     }
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -695,7 +719,10 @@ export async function getSharedLink(accountId) {
       .maybeSingle()
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -739,7 +766,10 @@ export async function getAllSharedLinks() {
       .select('*')
     if (error) throw error
     return data || []
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -764,7 +794,10 @@ export async function getSharedLedger(token) {
       balance,
       sharedAt: data.sharedAt
     }
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -796,7 +829,10 @@ export async function getLinkedAccount(accountId) {
       .maybeSingle()
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise
@@ -812,7 +848,10 @@ export async function getLinkedAccounts() {
       .select('*')
     if (error) throw error
     return data
-  })()
+  })().catch(err => {
+    dbCache.delete(cacheKey)
+    throw err
+  })
 
   dbCache.set(cacheKey, promise)
   return promise

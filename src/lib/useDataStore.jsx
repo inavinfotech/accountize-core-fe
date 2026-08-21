@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { supabase } from './supabase'
 import { getCurrentMonth, getMonthOptions } from './utils'
 import {
@@ -161,7 +161,7 @@ export function DataStoreProvider({ children }) {
     setAllAccounts(null)
   }, [refreshKey])
 
-  const value = {
+  const value = useMemo(() => ({
     // Month state (from old AppContext)
     currentMonth,
     setCurrentMonth,
@@ -189,7 +189,24 @@ export function DataStoreProvider({ children }) {
 
     // Invalidation
     invalidateAndRefresh,
-  }
+  }), [
+    currentMonth,
+    monthOptions,
+    refreshKey,
+    triggerRefresh,
+    dashboardData,
+    balances,
+    expenses,
+    linkedAccounts,
+    sharedLinks,
+    budgetPerDay,
+    allTransactions,
+    allAccounts,
+    fetchAllTransactions,
+    initialLoading,
+    refreshing,
+    invalidateAndRefresh,
+  ])
 
   return (
     <DataStoreContext.Provider value={value}>

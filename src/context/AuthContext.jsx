@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { analytics } from '../lib/analytics'
 
@@ -201,7 +201,7 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     session,
     loading,
@@ -217,7 +217,7 @@ export function AuthProvider({ children }) {
     unenrollMFA,
     getAssuranceLevel,
     getMFAFactors,
-  }
+  }), [user, session, loading, isMfaRequired])
 
   return (
     <AuthContext.Provider value={value}>

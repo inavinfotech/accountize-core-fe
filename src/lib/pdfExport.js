@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { formatDate } from './utils'
 import { analytics } from './analytics'
 
@@ -72,8 +70,12 @@ function buildGroupedExpenseRows(expensesList) {
 /**
  * Professional PDF Financial Report Exporter for Accountize
  */
-export function exportToPDF(type, data, currentMonth, user = null) {
+export async function exportToPDF(type, data, currentMonth, user = null) {
   try {
+    const { jsPDF } = await import('jspdf')
+    const autoTableModule = await import('jspdf-autotable')
+    const autoTable = autoTableModule.default || autoTableModule
+
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',

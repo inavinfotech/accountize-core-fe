@@ -18,10 +18,20 @@ export default function QuickSetupCard({ data, user }) {
 
   if (!data || dismissed) return null
 
-  // Calculate step completion based on user data
-  const step1Done = (data.cashBalance || 0) > 0 || (data.rawOnlineBalance || 0) > 0 || (data.bankBalance || 0) > 0
-  const step2Done = data.expenses && data.expenses.length > 0
-  const step3Done = data.receivables && data.receivables.length > 0
+  // Calculate step completion based on user data (considering all-time activity)
+  const step1Done = Boolean(
+    data.hasAnyTransaction ||
+    (data.cashBalance || 0) > 0 ||
+    (data.rawOnlineBalance || 0) > 0 ||
+    (data.bankBalance || 0) > 0 ||
+    (data.totalAssets || 0) > 0
+  )
+  const step2Done = Boolean(
+    data.hasAnyExpense ||
+    (data.totalExpensesUpTo || 0) > 0 ||
+    (data.expenses && data.expenses.length > 0)
+  )
+  const step3Done = Boolean(data.receivables && data.receivables.length > 0)
 
   // Hide automatically if all steps are completed
   if (step1Done && step2Done && step3Done) {

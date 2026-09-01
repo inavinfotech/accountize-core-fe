@@ -523,12 +523,14 @@ export async function getDashboardData(monthYear) {
 
   const promise = (async () => {
     // Run all independent queries in parallel instead of serial waterfall
-    const [balances, expenses, totalExpensesUpToResult, onlineBalanceResult, summary] = await Promise.all([
+    const [balances, expenses, totalExpensesUpToResult, onlineBalanceResult, summary, anyExpenses, anyTxns] = await Promise.all([
       getAccountBalances(monthYear),
       getExpenses(monthYear),
       supabase.rpc('get_total_expenses_up_to', { month_year_param: monthYear }),
       supabase.rpc('get_online_balance_up_to', { month_year_param: monthYear }),
       getMonthlySummary(monthYear),
+      supabase.from('expenses').select('id').limit(1).then(r => r.data || []).catch(() => []),
+      supabase.from('transactions').select('id').limit(1).then(r => r.data || []).catch(() => []),
     ])
 
     if (totalExpensesUpToResult.error) throw totalExpensesUpToResult.error
@@ -581,6 +583,9 @@ export async function getDashboardData(monthYear) {
 
     const totalAssets = totalReceivables + selfTotal
     const availableBalance = totalAssets - totalPayables
+
+    const hasAnyExpense = (anyExpenses && anyExpenses.length > 0) || (expenses && expenses.length > 0) || (totalExpensesUpTo > 0)
+    const hasAnyTransaction = (anyTxns && anyTxns.length > 0)
     
     return {
       balances,
@@ -604,6 +609,8 @@ export async function getDashboardData(monthYear) {
       perDayAvg,
       summary,
       missingDefaults,
+      hasAnyExpense,
+      hasAnyTransaction,
     }
   })().catch(err => {
     dbCache.delete(cacheKey)

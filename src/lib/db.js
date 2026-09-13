@@ -1027,3 +1027,202 @@ export async function getActiveSharedLinksCount() {
   if (error) return 0
   return count || 0
 }
+
+// ============ YEARLY REPORT & FINANCIAL YEAR ANALYTICS ============
+
+/**
+ * Fetches and aggregates complete financial performance metrics for an entire Financial Year (Apr-Mar),
+ * filtering out any months prior to the user's account creation date and future unelapsed months.
+ */
+export async function getYearlyReportData(fyStartYear, accountCreatedMonth) {
+  const now = new Date()
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const fyEndYear = fyStartYear + 1
+
+  // 1. Generate full candidate FY months (Apr of fyStartYear to Mar of fyEndYear)
+  const allCandidateMonths = []
+  for (let m = 4; m <= 12; m++) {
+    allCandidateMonths.push(`${fyStartYear}-${String(m).padStart(2, '0')}`)
+  }
+  for (let m = 1; m <= 3; m++) {
+    allCandidateMonths.push(`${fyEndYear}-${String(m).padStart(2, '0')}`)
+  }
+
+  // 2. Filter out months prior to account creation and months after current active month
+  const activeMonthsInFY = allCandidateMonths.filter(m => {
+    if (accountCreatedMonth && m < accountCreatedMonth) return false
+    if (m > currentMonthStr) return false
+    return true
+  })
+
+  if (activeMonthsInFY.length === 0) {
+    return {
+      fyStartYear,
+      fyEndYear,
+      fyLabel: `FY ${fyStartYear}-${String(fyEndYear % 100).padStart(2, '0')}`,
+      monthsData: [],
+      annualTotals: {
+        endingAvailableBalance: 0,
+        endingTotalAssets: 0,
+        endingTotalLiabilities: 0,
+        totalAnnualExpenses: 0,
+        avgMonthlyExpense: 0,
+        netAnnualChange: 0,
+        netAnnualChangePercent: 0,
+        totalMonths: 0,
+        verifiedMonthsCount: 0,
+        verificationRate: 100,
+        totalFaultAmount: 0
+      },
+      quarterlyData: []
+    }
+  }
+
+  // 3. Fetch monthly dashboard data in parallel
+  const monthlyDataResults = await Promise.all(
+    activeMonthsInFY.map(async (m) => {
+      try {
+        const data = await getDashboardData(m)
+        const summary = data?.summary || null
+        const manualCashVal = summary?.manual_cash || 0
+        const manualOnlineVal = summary ? (summary.manual_balance || 0) - manualCashVal : 0
+        const hasManual = summary && ((summary.manual_balance || 0) > 0 || (summary.manual_cash || 0) > 0)
+
+        const isOnlineVerified = manualOnlineVal <= 0 || Math.abs((data.onlineBalance || 0) - manualOnlineVal) < 0.01
+        const isCashVerified = manualCashVal <= 0 || Math.abs((data.cashBalance || 0) - manualCashVal) < 0.01
+        const isVerified = !hasManual || (isOnlineVerified && isCashVerified)
+
+        let fault = 0
+        if (!isOnlineVerified) fault += Math.abs((data.onlineBalance || 0) - manualOnlineVal)
+        if (!isCashVerified) fault += Math.abs((data.cashBalance || 0) - manualCashVal)
+
+        return {
+          month: m,
+          totalReceivables: data.totalReceivables || 0,
+          totalPayables: data.totalPayables || 0,
+          cashBalance: data.cashBalance || 0,
+          onlineBalance: data.onlineBalance || 0,
+          bankBalance: data.bankBalance || 0,
+          rawOnlineBalance: data.rawOnlineBalance || 0,
+          totalAssets: data.totalAssets || 0,
+          availableBalance: data.availableBalance || 0,
+          totalExpenses: data.totalExpenses || 0,
+          perDayAvg: data.perDayAvg || 0,
+          daysTracked: data.daysTracked || 0,
+          summary,
+          isVerified,
+          faultAmount: fault
+        }
+      } catch (err) {
+        console.error(`Error loading yearly report data for ${m}:`, err)
+        return {
+          month: m,
+          totalReceivables: 0,
+          totalPayables: 0,
+          cashBalance: 0,
+          onlineBalance: 0,
+          bankBalance: 0,
+          rawOnlineBalance: 0,
+          totalAssets: 0,
+          availableBalance: 0,
+          totalExpenses: 0,
+          perDayAvg: 0,
+          daysTracked: 0,
+          summary: null,
+          isVerified: true,
+          faultAmount: 0
+        }
+      }
+    })
+  )
+
+  // 4. Compute Month-over-Month (MoM) Deltas
+  const monthsData = monthlyDataResults.map((curr, idx) => {
+    if (idx === 0) {
+      return {
+        ...curr,
+        momChange: 0,
+        momChangePercent: 0
+      }
+    }
+    const prev = monthlyDataResults[idx - 1]
+    const diff = curr.availableBalance - prev.availableBalance
+    const pct = prev.availableBalance !== 0 ? (diff / Math.abs(prev.availableBalance)) * 100 : 0
+    return {
+      ...curr,
+      momChange: diff,
+      momChangePercent: pct
+    }
+  })
+
+  // 5. Quarterly Aggregations
+  const getQuarter = (mStr) => {
+    const monthNum = parseInt(mStr.split('-')[1], 10)
+    if (monthNum >= 4 && monthNum <= 6) return 'Q1'
+    if (monthNum >= 7 && monthNum <= 9) return 'Q2'
+    if (monthNum >= 10 && monthNum <= 12) return 'Q3'
+    return 'Q4' // Jan, Feb, Mar
+  }
+
+  const quarterMap = {
+    Q1: { name: 'Q1 (Apr - Jun)', months: [], totalExpenses: 0, endingBalance: 0, endingAssets: 0, endingLiabilities: 0 },
+    Q2: { name: 'Q2 (Jul - Sep)', months: [], totalExpenses: 0, endingBalance: 0, endingAssets: 0, endingLiabilities: 0 },
+    Q3: { name: 'Q3 (Oct - Dec)', months: [], totalExpenses: 0, endingBalance: 0, endingAssets: 0, endingLiabilities: 0 },
+    Q4: { name: 'Q4 (Jan - Mar)', months: [], totalExpenses: 0, endingBalance: 0, endingAssets: 0, endingLiabilities: 0 },
+  }
+
+  monthsData.forEach(item => {
+    const qKey = getQuarter(item.month)
+    quarterMap[qKey].months.push(item)
+    quarterMap[qKey].totalExpenses += item.totalExpenses
+    quarterMap[qKey].endingBalance = item.availableBalance
+    quarterMap[qKey].endingAssets = item.totalAssets
+    quarterMap[qKey].endingLiabilities = item.totalPayables
+  })
+
+  const quarterlyData = Object.entries(quarterMap)
+    .filter(([, q]) => q.months.length > 0)
+    .map(([key, q]) => ({
+      key,
+      name: q.name,
+      monthCount: q.months.length,
+      totalExpenses: q.totalExpenses,
+      endingBalance: q.endingBalance,
+      endingAssets: q.endingAssets,
+      endingLiabilities: q.endingLiabilities
+    }))
+
+  // 6. Annual Totals
+  const latestMonthData = monthsData[monthsData.length - 1]
+  const firstMonthData = monthsData[0]
+  const totalAnnualExpenses = monthsData.reduce((sum, m) => sum + m.totalExpenses, 0)
+  const avgMonthlyExpense = monthsData.length > 0 ? totalAnnualExpenses / monthsData.length : 0
+  const netAnnualChange = (latestMonthData?.availableBalance || 0) - (firstMonthData?.availableBalance || 0)
+  const netAnnualChangePercent = (firstMonthData?.availableBalance || 0) !== 0
+    ? (netAnnualChange / Math.abs(firstMonthData.availableBalance)) * 100
+    : 0
+  const verifiedMonthsCount = monthsData.filter(m => m.isVerified).length
+  const totalFaultAmount = monthsData.reduce((sum, m) => sum + (m.faultAmount || 0), 0)
+
+  return {
+    fyStartYear,
+    fyEndYear,
+    fyLabel: `FY ${fyStartYear}-${String(fyEndYear % 100).padStart(2, '0')}`,
+    monthsData,
+    annualTotals: {
+      endingAvailableBalance: latestMonthData?.availableBalance || 0,
+      endingTotalAssets: latestMonthData?.totalAssets || 0,
+      endingTotalLiabilities: latestMonthData?.totalPayables || 0,
+      totalAnnualExpenses,
+      avgMonthlyExpense,
+      netAnnualChange,
+      netAnnualChangePercent,
+      totalMonths: monthsData.length,
+      verifiedMonthsCount,
+      verificationRate: monthsData.length > 0 ? (verifiedMonthsCount / monthsData.length) * 100 : 100,
+      totalFaultAmount
+    },
+    quarterlyData
+  }
+}
+

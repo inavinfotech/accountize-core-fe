@@ -5,6 +5,10 @@ import { supabase } from './supabase'
  * Pruned for zero noise & low DB load. Only tracks high-value business funnels & feature milestones.
  */
 export const analytics = {
+  // Generic Tracking & Error Logging
+  track: (eventName, metadata = {}) => sendEvent(eventName, metadata),
+  logError: (errorMessage, stackTrace = '', url = '') => logError(errorMessage, stackTrace, url),
+
   // Auth & Session Events
   signUpCompleted: (email, provider = 'email') => sendEvent('signup_completed', { email, provider }),
   userSignedIn: (provider = 'email') => sendEvent('user_signed_in', { provider }),
@@ -43,6 +47,7 @@ export const analytics = {
   referralCompleted: (referrerId, referralCode) => sendEvent('referral_completed', { referrer_id: referrerId, referral_code: referralCode })
 }
 
+
 /**
  * Low-level function to insert custom event into `analytics_events` Supabase table.
  */
@@ -73,7 +78,11 @@ async function sendEvent(eventName, metadata = {}) {
  * Logs frontend runtime errors and unhandled promise rejections to `error_logs`.
  */
 export async function logError(errorMessage, stackTrace = '', url = '') {
-  const msgStr = String(errorMessage || '').toLowerCase()
+  const isErrObj = errorMessage && typeof errorMessage === 'object'
+  const message = isErrObj ? (errorMessage.message || String(errorMessage)) : String(errorMessage || '')
+  const stack = isErrObj && errorMessage.stack ? errorMessage.stack : String(stackTrace || '')
+  const msgStr = message.toLowerCase()
+
   if (
     !navigator.onLine ||
     msgStr.includes('err_internet_disconnected') ||
@@ -82,15 +91,15 @@ export async function logError(errorMessage, stackTrace = '', url = '') {
     msgStr.includes('network request failed')
   ) {
     // Suppress logging to DB when offline to avoid recursive network fetch errors
-    console.warn('[ErrorLogger] Offline network error suppressed:', errorMessage)
+    console.warn('[ErrorLogger] Offline network error suppressed:', message)
     return
   }
 
   try {
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
-      error_message: String(errorMessage),
-      stack_trace: String(stackTrace || ''),
+      error_message: message,
+      stack_trace: stack,
       url: String(url || window.location.href).toLowerCase(),
       user_id: user?.id || null
     }
@@ -103,3 +112,4 @@ export async function logError(errorMessage, stackTrace = '', url = '') {
     console.warn('[ErrorLogger] Internal logging error:', err)
   }
 }
+

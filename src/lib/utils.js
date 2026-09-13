@@ -123,7 +123,6 @@ export function parseMathExpression(inputVal, analyticsRef) {
   try {
     const cleaned = str.replace(/[^0-9+\-*/.]/g, '')
     if (!cleaned) return 0
-    // eslint-disable-next-line no-eval
     const result = Function(`"use strict"; return (${cleaned})`)()
     if (typeof result === 'number' && !isNaN(result)) {
       if (hasOperators && analyticsRef?.mathSplitUsed) {
@@ -136,4 +135,84 @@ export function parseMathExpression(inputVal, analyticsRef) {
   }
   return parseFloat(str) || 0
 }
+
+/**
+ * Returns formatted Financial Year label (e.g. FY 2025-26) for a given start year
+ */
+export function formatFYLabel(fyStartYear) {
+  const nextYearShort = String((fyStartYear + 1) % 100).padStart(2, '0')
+  return `FY ${fyStartYear}-${nextYearShort}`
+}
+
+/**
+ * Returns the Financial Year metadata for a given 'YYYY-MM' string.
+ * Financial Year in India / business accounting starts in April (04) and ends in March (03) next year.
+ */
+export function getFinancialYear(monthYearStr) {
+  if (!monthYearStr) {
+    const now = new Date()
+    monthYearStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  }
+  const [year, month] = monthYearStr.split('-').map(Number)
+  const fyStartYear = month >= 4 ? year : year - 1
+  const fyEndYear = fyStartYear + 1
+
+  const months = []
+  // Apr to Dec of fyStartYear
+  for (let m = 4; m <= 12; m++) {
+    months.push(`${fyStartYear}-${String(m).padStart(2, '0')}`)
+  }
+  // Jan to Mar of fyEndYear
+  for (let m = 1; m <= 3; m++) {
+    months.push(`${fyEndYear}-${String(m).padStart(2, '0')}`)
+  }
+
+  return {
+    fyStartYear,
+    fyEndYear,
+    label: formatFYLabel(fyStartYear),
+    months
+  }
+}
+
+/**
+ * Computes all available Financial Years between the user's account creation date and current date.
+ */
+export function getAvailableFinancialYears(creationDateStr, currentMonthStr) {
+  const currentMonth = currentMonthStr || getCurrentMonth()
+  const currentFY = getFinancialYear(currentMonth)
+
+  let creationMonth = currentMonth
+  if (creationDateStr) {
+    const d = new Date(creationDateStr)
+    if (!isNaN(d.getTime())) {
+      creationMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+  }
+  const creationFY = getFinancialYear(creationMonth)
+
+  const list = []
+  for (let yr = currentFY.fyStartYear; yr >= creationFY.fyStartYear; yr--) {
+    list.push({
+      startYear: yr,
+      label: formatFYLabel(yr)
+    })
+  }
+
+  return {
+    creationMonth,
+    availableFYs: list
+  }
+}
+
+/**
+ * Formats 'YYYY-MM' to short month name e.g. 'Aug 2025' or 'August 2025'
+ */
+export function formatMonthName(monthYearStr, short = false) {
+  if (!monthYearStr || !monthYearStr.includes('-')) return monthYearStr || ''
+  const [year, month] = monthYearStr.split('-').map(Number)
+  const d = new Date(year, month - 1, 1)
+  return d.toLocaleDateString('en-IN', { month: short ? 'short' : 'long', year: 'numeric' })
+}
+
 

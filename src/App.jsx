@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Receipt, ShieldCheck,
-  Calendar, LogOut, Settings as SettingsIcon, Ban
+  Calendar, LogOut, Settings as SettingsIcon, Ban, TrendingUp,
+  Grid3x3, X, ChevronRight, ArrowLeftRight
 } from 'lucide-react'
 import { DataStoreProvider, useApp } from './lib/useDataStore.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -15,12 +16,14 @@ import NotificationBell from './components/NotificationBell'
 import ToastContainer from './components/ToastContainer'
 import OnboardingWizard from './components/OnboardingWizard'
 import NetworkStatusBanner from './components/NetworkStatusBanner'
+import YearlyReportModal from './components/YearlyReportModal'
 import { analytics } from './lib/analytics'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Accounts = lazy(() => import('./pages/Accounts'))
 const Expenses = lazy(() => import('./pages/Expenses'))
 const Verification = lazy(() => import('./pages/Verification'))
+const YearlyReport = lazy(() => import('./pages/YearlyReport'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Login = lazy(() => import('./pages/Login'))
 const SharedLedger = lazy(() => import('./pages/SharedLedger'))
@@ -130,28 +133,118 @@ function TopBar() {
 }
 
 function BottomNav() {
+  const location = useLocation()
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
+
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/accounts', icon: Users, label: 'Accounts' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
-    { path: '/verification', icon: ShieldCheck, label: 'Audit & Check' },
+    { path: '/verification', icon: ShieldCheck, label: 'Audit' },
+    { path: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+    { path: '/yearly', icon: TrendingUp, label: 'Yearly' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ]
 
+  // Close slider on route changes
+  useEffect(() => {
+    setIsMoreOpen(false)
+  }, [location.pathname])
+
+  const maxVisible = 5
+  const hasMore = navItems.length > maxVisible
+
+  // If more than 5 options: show first 4 directly + 1 "More" button = exactly 5 visible items
+  const primaryItems = hasMore ? navItems.slice(0, maxVisible - 1) : navItems
+  const overflowItems = hasMore ? navItems.slice(maxVisible - 1) : []
+
+  // Check if any overflow option is currently active
+  const isOverflowActive = overflowItems.some(item =>
+    item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
+  )
+
   return (
-    <nav className="mobile-bottom-nav">
-      {navItems.map(item => (
-        <NavLink
-          key={item.path}
-          to={item.path}
-          end={item.path === '/'}
-          className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
+    <>
+      <nav className="mobile-bottom-nav">
+        {primaryItems.map(item => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/'}
+            className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
+          >
+            <item.icon size={20} />
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+
+        {hasMore && (
+          <button
+            type="button"
+            className={`bottom-nav-item bottom-nav-more-btn ${isOverflowActive || isMoreOpen ? 'active' : ''}`}
+            onClick={() => setIsMoreOpen(prev => !prev)}
+            aria-label="More navigation options"
+            aria-expanded={isMoreOpen}
+          >
+            <Grid3x3 size={20} />
+            <span>More</span>
+          </button>
+        )}
+      </nav>
+
+      {/* Slider Drawer for Overflow Options */}
+      {hasMore && (
+        <div
+          className={`bottom-nav-sheet-backdrop ${isMoreOpen ? 'open' : ''}`}
+          onClick={() => setIsMoreOpen(false)}
         >
-          <item.icon size={20} />
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-    </nav>
+          <div
+            className={`bottom-nav-sheet ${isMoreOpen ? 'open' : ''}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bottom-nav-sheet-handle-bar">
+              <div className="bottom-nav-sheet-handle" />
+            </div>
+
+            <div className="bottom-nav-sheet-header">
+              <span className="bottom-nav-sheet-title">More Options</span>
+              <button
+                type="button"
+                className="bottom-nav-sheet-close"
+                onClick={() => setIsMoreOpen(false)}
+                aria-label="Close options"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bottom-nav-sheet-grid">
+              {overflowItems.map(item => {
+                const isActive = item.path === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(item.path)
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={`bottom-sheet-nav-card ${isActive ? 'active' : ''}`}
+                    onClick={() => setIsMoreOpen(false)}
+                  >
+                    <div className="bottom-sheet-nav-icon">
+                      <item.icon size={20} />
+                    </div>
+                    <div className="bottom-sheet-nav-info">
+                      <span className="bottom-sheet-nav-label">{item.label}</span>
+                    </div>
+                    <ChevronRight size={16} className="bottom-sheet-nav-arrow" />
+                  </NavLink>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -161,8 +254,10 @@ function Sidebar() {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/accounts', icon: Users, label: 'Accounts' },
+    { path: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
     { path: '/expenses', icon: Receipt, label: 'Expenses' },
     { path: '/verification', icon: ShieldCheck, label: 'Audit & Check' },
+    { path: '/yearly', icon: TrendingUp, label: 'Yearly Report' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ]
 
@@ -210,6 +305,14 @@ function Sidebar() {
 }
 
 function AppLayout() {
+  const [showYearlyReport, setShowYearlyReport] = useState(false)
+
+  useEffect(() => {
+    const handleOpen = () => setShowYearlyReport(true)
+    window.addEventListener('accountize:open-yearly-report', handleOpen)
+    return () => window.removeEventListener('accountize:open-yearly-report', handleOpen)
+  }, [])
+
   return (
     <div className="app-layout">
       <ToastContainer />
@@ -238,6 +341,7 @@ function AppLayout() {
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/verification" element={<Verification />} />
+            <Route path="/yearly" element={<YearlyReport />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/security" element={<Navigate to="/settings" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -249,6 +353,10 @@ function AppLayout() {
       <BottomNav />
       <OnboardingWizard />
       <NetworkStatusBanner />
+      <YearlyReportModal
+        isOpen={showYearlyReport}
+        onClose={() => setShowYearlyReport(false)}
+      />
     </div>
   )
 }
@@ -259,6 +367,7 @@ const ROUTE_TITLES = {
   '/expenses': 'Accountize — Daily Expenses',
   '/transactions': 'Accountize — Transaction Ledger',
   '/verification': 'Accountize — Health & Fault Verification',
+  '/yearly': 'Accountize — Financial Year Report',
   '/settings': 'Accountize — Preferences & Security',
   '/login': 'Accountize — Authentication'
 }

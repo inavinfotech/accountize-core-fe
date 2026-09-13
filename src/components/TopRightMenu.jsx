@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { MoreVertical, Receipt, HelpCircle, LogOut } from 'lucide-react'
+import { MoreVertical, HelpCircle, LogOut } from 'lucide-react'
 
 export default function TopRightMenu() {
   const { signOut } = useAuth()
@@ -27,11 +27,6 @@ export default function TopRightMenu() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen])
-
-  const handleAllTransactionsClick = () => {
-    navigate('/transactions')
-    setIsOpen(false)
-  }
 
   const handleRerunGuideClick = () => {
     window.dispatchEvent(new CustomEvent('accountize:open-onboarding'))
@@ -60,15 +55,6 @@ export default function TopRightMenu() {
 
       {isOpen && (
         <div className="top-right-menu-dropdown">
-          <button 
-            className="top-right-menu-item" 
-            onClick={handleAllTransactionsClick}
-            type="button"
-          >
-            <Receipt size={16} />
-            <span>Transactions</span>
-          </button>
-
           <button 
             className="top-right-menu-item" 
             onClick={handleRerunGuideClick}

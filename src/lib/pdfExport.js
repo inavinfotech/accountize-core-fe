@@ -668,3 +668,270 @@ export function exportPaymentInvoicePDF({ receipt, user }) {
     alert('Failed to generate invoice PDF. Please try again.')
   }
 }
+
+/**
+ * Professional PDF Exporter for Full Financial Year Statement & Analytics
+ */
+export async function exportYearlyReportPDF(fyLabel, yearlyData, user = null) {
+  try {
+    const { jsPDF } = await import('jspdf')
+    const autoTableModule = await import('jspdf-autotable')
+    const autoTable = autoTableModule.default || autoTableModule
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+
+    // Palette
+    const primaryColor = [15, 23, 42]     // #0f172a
+    const accentColor = [99, 102, 241]    // #6366f1
+    const mutedColor = [100, 116, 139]    // #64748b
+    const lightBg = [248, 250, 252]       // #f8fafc
+    const borderColor = [226, 232, 240]   // #e2e8f0
+
+    const totals = yearlyData.annualTotals || {}
+    const months = yearlyData.monthsData || []
+    const quarters = yearlyData.quarterlyData || []
+
+    // ── Header Banner ────────────────────────────────────────────────────────
+    doc.setFillColor(...lightBg)
+    doc.rect(0, 0, pageWidth, 42, 'F')
+
+    // Top Accent Bar
+    doc.setFillColor(...accentColor)
+    doc.rect(0, 0, pageWidth, 3, 'F')
+
+    // App Branding
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text('Accountize', 14, 15)
+
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...mutedColor)
+    doc.text('Personal Finance & Double-Entry Accounting', 14, 20)
+
+    // Report Title (Right Aligned)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...accentColor)
+    doc.text('Financial Year Statement', pageWidth - 14, 15, { align: 'right' })
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text(fyLabel || 'Annual Statement', pageWidth - 14, 21, { align: 'right' })
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...mutedColor)
+    doc.text(`Generated: ${formatDate(new Date().toISOString())}`, pageWidth - 14, 26, { align: 'right' })
+    if (user?.email) {
+      doc.text(`Account: ${user.email}`, pageWidth - 14, 31, { align: 'right' })
+    }
+
+    // Border line under header
+    doc.setDrawColor(...borderColor)
+    doc.setLineWidth(0.3)
+    doc.line(14, 38, pageWidth - 14, 38)
+
+    // ── Annual Summary KPI Cards (2x3 Grid) ──────────────────────────────────
+    let yPos = 46
+    const cardWidth = (pageWidth - 28 - 8) / 3
+    const cardHeight = 18
+
+    const kpiItems = [
+      { label: 'Ending Net Balance', val: formatPdfCurrency(totals.endingAvailableBalance), color: accentColor },
+      { label: 'Ending Total Assets', val: formatPdfCurrency(totals.endingTotalAssets), color: [16, 185, 129] },
+      { label: 'Ending Liabilities', val: formatPdfCurrency(totals.endingTotalLiabilities), color: [239, 68, 68] },
+      { label: 'Total Annual Expenses', val: formatPdfCurrency(totals.totalAnnualExpenses), color: [239, 68, 68] },
+      { label: 'Monthly Avg Expense', val: formatPdfCurrency(totals.avgMonthlyExpense), color: [217, 119, 6] },
+      { label: 'Verification Health', val: `${Math.round(totals.verificationRate || 100)}% (${totals.verifiedMonthsCount || 0}/${totals.totalMonths || 0} Mos)`, color: [16, 185, 129] },
+    ]
+
+    kpiItems.forEach((kpi, idx) => {
+      const col = idx % 3
+      const row = Math.floor(idx / 3)
+      const x = 14 + col * (cardWidth + 4)
+      const y = yPos + row * (cardHeight + 4)
+
+      doc.setFillColor(255, 255, 255)
+      doc.setDrawColor(...borderColor)
+      doc.roundedRect(x, y, cardWidth, cardHeight, 1.5, 1.5, 'FD')
+
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...mutedColor)
+      doc.text(kpi.label, x + 3.5, y + 5.5)
+
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...kpi.color)
+      doc.text(kpi.val, x + 3.5, y + 13)
+    })
+
+    yPos += 2 * (cardHeight + 4) + 6
+
+    // ── Quarterly Performance Summary ────────────────────────────────────────
+    if (quarters.length > 0) {
+      doc.setFontSize(10.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...primaryColor)
+      doc.text('Quarterly Performance Breakdown', 14, yPos)
+      yPos += 3
+
+      const qHeaders = [['Quarter', 'Active Months', 'Total Expenses', 'Ending Assets', 'Ending Liabilities', 'Ending Net Balance']]
+      const qRows = quarters.map(q => [
+        q.name,
+        `${q.monthCount} Month${q.monthCount > 1 ? 's' : ''}`,
+        formatPdfCurrency(q.totalExpenses),
+        formatPdfCurrency(q.endingAssets),
+        formatPdfCurrency(q.endingLiabilities),
+        formatPdfCurrency(q.endingBalance)
+      ])
+
+      autoTable(doc, {
+        startY: yPos,
+        head: qHeaders,
+        body: qRows,
+        theme: 'plain',
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2,
+          textColor: [15, 23, 42],
+          lineColor: borderColor,
+          lineWidth: 0.1
+        },
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 7.5
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        columnStyles: {
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right', fontStyle: 'bold' }
+        },
+        margin: { left: 14, right: 14 }
+      })
+
+      yPos = doc.lastAutoTable.finalY + 8
+    }
+
+    // ── Month-Wise Detailed Financial Statement ──────────────────────────────
+    doc.setFontSize(10.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text('Month-by-Month Financial Ledger & Reconciliation', 14, yPos)
+    yPos += 3
+
+    const monthHeaders = [[
+      'Month',
+      'Assets',
+      'Liabilities',
+      'Net Balance',
+      'Online',
+      'Cash',
+      'Expenses',
+      'Status',
+      'MoM Delta'
+    ]]
+
+    const monthRows = months.map(m => {
+      let monthTitle = m.month
+      if (m.month && m.month.includes('-')) {
+        const [yr, mo] = m.month.split('-').map(Number)
+        const d = new Date(yr, mo - 1, 1)
+        monthTitle = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+      }
+
+      const statusText = m.isVerified
+        ? 'Verified'
+        : (m.faultAmount > 0 ? `Fault: ${formatPdfCurrency(m.faultAmount)}` : 'Unverified')
+
+      const momDeltaStr = m.momChange === 0
+        ? '-'
+        : `${m.momChange > 0 ? '+' : ''}${formatPdfCurrency(m.momChange)} (${m.momChangePercent > 0 ? '+' : ''}${m.momChangePercent.toFixed(1)}%)`
+
+      return [
+        monthTitle,
+        formatPdfCurrency(m.totalAssets),
+        formatPdfCurrency(m.totalPayables),
+        formatPdfCurrency(m.availableBalance),
+        formatPdfCurrency(m.onlineBalance),
+        formatPdfCurrency(m.cashBalance),
+        formatPdfCurrency(m.totalExpenses),
+        statusText,
+        momDeltaStr
+      ]
+    })
+
+    autoTable(doc, {
+      startY: yPos,
+      head: monthHeaders,
+      body: monthRows,
+      theme: 'plain',
+      styles: {
+        fontSize: 7.2,
+        cellPadding: 2,
+        textColor: [15, 23, 42],
+        lineColor: borderColor,
+        lineWidth: 0.1
+      },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        fontSize: 7.2
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right', fontStyle: 'bold' },
+        4: { halign: 'right' },
+        5: { halign: 'right' },
+        6: { halign: 'right' },
+        7: { halign: 'center' },
+        8: { halign: 'right' }
+      },
+      margin: { left: 14, right: 14 }
+    })
+
+    // ── Page Numbers & Footer on all pages ───────────────────────────────────
+    const pageCount = doc.internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setDrawColor(...borderColor)
+      doc.setLineWidth(0.2)
+      doc.line(14, pageHeight - 12, pageWidth - 14, pageHeight - 12)
+
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...mutedColor)
+      doc.text('Accountize — Confidential Annual Accounting Report', 14, pageHeight - 7)
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 7, { align: 'right' })
+    }
+
+    const cleanFilename = `Accountize_${(fyLabel || 'Yearly_Report').replace(/\s+/g, '_')}_Statement.pdf`
+    doc.save(cleanFilename)
+    analytics.track('export_pdf_yearly_report', { fy: fyLabel, totalMonths: months.length })
+  } catch (err) {
+    console.error('Failed to export yearly report PDF:', err)
+    alert('Failed to generate yearly report PDF. Please try again.')
+  }
+}
+

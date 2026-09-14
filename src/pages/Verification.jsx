@@ -20,6 +20,7 @@ export default function Verification() {
   const [settleAmount, setSettleAmount] = useState('')
   const [settleAccountId, setSettleAccountId] = useState('')
   const [userEditedAmount, setUserEditedAmount] = useState(false)
+  const [isSettling, setIsSettling] = useState(false)
 
   // Populate manual balance fields when data arrives
   useEffect(() => {
@@ -126,7 +127,9 @@ export default function Verification() {
   }
 
   async function handleSettle(accountId, amount) {
+    if (isSettling) return
     try {
+      setIsSettling(true)
       await createTransaction({
         account_id: accountId,
         amount: -amount,
@@ -137,15 +140,21 @@ export default function Verification() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to settle expenses:', err)
+    } finally {
+      setIsSettling(false)
     }
   }
 
   async function handleUndoSettle(txnId) {
+    if (isSettling) return
     try {
+      setIsSettling(true)
       await deleteTransaction(txnId)
       triggerRefresh()
     } catch (err) {
       console.error('Failed to undo settlement:', err)
+    } finally {
+      setIsSettling(false)
     }
   }
 
@@ -307,9 +316,10 @@ export default function Verification() {
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => handleUndoSettle(settlementTxn.id)}
+                        disabled={isSettling}
                         style={{ padding: '2px 6px', height: 'auto', fontSize: '0.7rem', color: 'var(--red)', fontWeight: 600 }}
                       >
-                        Undo
+                        {isSettling ? 'Undoing...' : 'Undo'}
                       </button>
                     </div>
                   ) : (
@@ -345,10 +355,11 @@ export default function Verification() {
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => handleSettle(settleAccountId, parseFloat(settleAmount) || 0)}
-                        disabled={!settleAccountId || (parseFloat(settleAmount) || 0) <= 0}
-                        style={{ fontSize: '0.7rem', padding: '5px 10px', alignSelf: 'flex-start', fontWeight: 600 }}
+                        disabled={isSettling || !settleAccountId || (parseFloat(settleAmount) || 0) <= 0}
+                        style={{ fontSize: '0.7rem', padding: '5px 10px', alignSelf: 'flex-start', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        Settle Expenses
+                        {isSettling && <div className="loading-spinner" style={{ width: 10, height: 10 }} />}
+                        <span>{isSettling ? 'Settling...' : 'Settle Expenses'}</span>
                       </button>
                     </div>
                   )}

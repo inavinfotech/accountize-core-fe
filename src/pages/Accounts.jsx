@@ -49,6 +49,11 @@ export default function Accounts() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState('')
 
+  const [submittingAccount, setSubmittingAccount] = useState(false)
+  const [submittingTxn, setSubmittingTxn] = useState(false)
+  const [submittingEditAccount, setSubmittingEditAccount] = useState(false)
+  const [submittingEditTxn, setSubmittingEditTxn] = useState(false)
+
   const selectedAccount = useMemo(() => {
     if (!showAddTransaction) return null
     return accounts.find(a => a.id === showAddTransaction)
@@ -66,7 +71,9 @@ export default function Accounts() {
 
   async function handleAddAccount(e) {
     e.preventDefault()
+    if (submittingAccount) return
     try {
+      setSubmittingAccount(true)
       // Tier enforcement: check account limit
       const nonDefaultAccounts = accounts.filter(a => !isDefaultAccount(a))
       if (nonDefaultAccounts.length >= limits.maxAccounts) {
@@ -87,6 +94,8 @@ export default function Accounts() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to create account:', err)
+    } finally {
+      setSubmittingAccount(false)
     }
   }
 
@@ -101,8 +110,9 @@ export default function Accounts() {
 
   async function handleEditAccount(e) {
     e.preventDefault()
-    if (!editingAccount || !editingAccount.name.trim()) return
+    if (submittingEditAccount || !editingAccount || !editingAccount.name.trim()) return
     try {
+      setSubmittingEditAccount(true)
       const updates = {
         name: editingAccount.name.trim()
       }
@@ -115,6 +125,8 @@ export default function Accounts() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to edit account:', err)
+    } finally {
+      setSubmittingEditAccount(false)
     }
   }
 
@@ -146,7 +158,9 @@ export default function Accounts() {
 
   async function handleAddTransaction(e) {
     e.preventDefault()
+    if (submittingTxn) return
     try {
+      setSubmittingTxn(true)
       const amountVal = parseFloat(newTxn.amount)
       await createTransaction({
         account_id: showAddTransaction,
@@ -179,13 +193,16 @@ export default function Accounts() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to create transaction:', err)
+    } finally {
+      setSubmittingTxn(false)
     }
   }
 
   async function handleEditTransaction(e) {
     e.preventDefault()
-    if (!editingTransaction) return
+    if (submittingEditTxn || !editingTransaction) return
     try {
+      setSubmittingEditTxn(true)
       await updateTransaction(editingTransaction.id, {
         amount: parseFloat(editingTransaction.amount),
         description: editingTransaction.description,
@@ -195,6 +212,8 @@ export default function Accounts() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to update transaction:', err)
+    } finally {
+      setSubmittingEditTxn(false)
     }
   }
 
@@ -840,8 +859,11 @@ export default function Accounts() {
               </div>
             )}
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowAddAccount(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Create Account</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAddAccount(false)} disabled={submittingAccount}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={submittingAccount} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {submittingAccount && <div className="loading-spinner" style={{ width: 14, height: 14, borderTopColor: '#fff' }} />}
+                <span>{submittingAccount ? 'Creating...' : 'Create Account'}</span>
+              </button>
             </div>
           </form>
         </Modal>
@@ -904,8 +926,11 @@ export default function Accounts() {
               </>
             )}
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setEditingAccount(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingAccount(null)} disabled={submittingEditAccount}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={submittingEditAccount} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {submittingEditAccount && <div className="loading-spinner" style={{ width: 14, height: 14, borderTopColor: '#fff' }} />}
+                <span>{submittingEditAccount ? 'Saving...' : 'Save Changes'}</span>
+              </button>
             </div>
           </form>
         </Modal>
@@ -1002,8 +1027,11 @@ export default function Accounts() {
             )}
 
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowAddTransaction(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Add Transaction</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAddTransaction(null)} disabled={submittingTxn}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={submittingTxn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {submittingTxn && <div className="loading-spinner" style={{ width: 14, height: 14, borderTopColor: '#fff' }} />}
+                <span>{submittingTxn ? 'Adding...' : 'Add Transaction'}</span>
+              </button>
             </div>
           </form>
         </Modal>
@@ -1049,8 +1077,11 @@ export default function Accounts() {
               />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setEditingTransaction(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingTransaction(null)} disabled={submittingEditTxn}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={submittingEditTxn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {submittingEditTxn && <div className="loading-spinner" style={{ width: 14, height: 14, borderTopColor: '#fff' }} />}
+                <span>{submittingEditTxn ? 'Saving...' : 'Save Changes'}</span>
+              </button>
             </div>
           </form>
         </Modal>

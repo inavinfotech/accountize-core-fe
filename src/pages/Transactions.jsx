@@ -27,6 +27,8 @@ export default function Transactions() {
   // Edit / Delete State
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [actionLoadingId, setActionLoadingId] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -55,22 +57,30 @@ export default function Transactions() {
   }
 
   async function handleVerify(id) {
+    if (actionLoadingId) return
     try {
+      setActionLoadingId(id)
       await verifyTransaction(id)
       loadData()
       triggerRefresh()
     } catch (err) {
       console.error('Failed to verify transaction:', err)
+    } finally {
+      setActionLoadingId(null)
     }
   }
 
   async function handleReject(id) {
+    if (actionLoadingId) return
     try {
+      setActionLoadingId(id)
       await rejectTransaction(id)
       loadData()
       triggerRefresh()
     } catch (err) {
       console.error('Failed to reject transaction:', err)
+    } finally {
+      setActionLoadingId(null)
     }
   }
 
@@ -87,18 +97,20 @@ export default function Transactions() {
             <button 
               className="btn btn-ghost btn-sm"
               onClick={() => handleVerify(txn.id)}
+              disabled={actionLoadingId === txn.id}
               style={{ color: 'var(--green)', padding: '2px 6px', fontSize: '0.65rem', height: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}
               type="button"
             >
-              <Check size={10} /> Approve
+              <Check size={10} /> {actionLoadingId === txn.id ? 'Approving...' : 'Approve'}
             </button>
             <button 
               className="btn btn-ghost btn-sm"
               onClick={() => handleReject(txn.id)}
+              disabled={actionLoadingId === txn.id}
               style={{ color: 'var(--red)', padding: '2px 6px', fontSize: '0.65rem', height: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}
               type="button"
             >
-              <X size={10} /> Reject
+              <X size={10} /> {actionLoadingId === txn.id ? 'Rejecting...' : 'Reject'}
             </button>
           </div>
         </div>
@@ -174,8 +186,9 @@ export default function Transactions() {
   // Handle transaction edit submit
   async function handleEditSubmit(e) {
     e.preventDefault()
-    if (!editingTransaction) return
+    if (isSubmitting || !editingTransaction) return
     try {
+      setIsSubmitting(true)
       await updateTransaction(editingTransaction.id, {
         amount: parseFloat(editingTransaction.amount),
         description: editingTransaction.description,
@@ -187,6 +200,8 @@ export default function Transactions() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to update transaction:', err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -468,8 +483,11 @@ export default function Transactions() {
               />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setEditingTransaction(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingTransaction(null)} disabled={isSubmitting}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {isSubmitting && <div className="loading-spinner" style={{ width: 14, height: 14, borderTopColor: '#fff' }} />}
+                <span>{isSubmitting ? 'Saving...' : 'Save Changes'}</span>
+              </button>
             </div>
           </form>
         </Modal>

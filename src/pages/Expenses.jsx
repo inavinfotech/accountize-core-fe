@@ -38,6 +38,9 @@ export default function Expenses() {
   const [dailyExpensesExpanded, setDailyExpensesExpanded] = useState(false)
   const [spendingTrendExpanded, setSpendingTrendExpanded] = useState(false)
 
+  const [submittingExpense, setSubmittingExpense] = useState(false)
+  const [isSettling, setIsSettling] = useState(false)
+
   const pendingUpdatesRef = useRef({})
   const debounceTimerRef = useRef(null)
   const draggedIdRef = useRef(null)
@@ -158,7 +161,9 @@ export default function Expenses() {
   }
 
   async function handleSettle(accountId, amount) {
+    if (isSettling) return
     try {
+      setIsSettling(true)
       await createTransaction({
         account_id: accountId,
         amount: -amount,
@@ -169,15 +174,21 @@ export default function Expenses() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to settle monthly expenses:', err)
+    } finally {
+      setIsSettling(false)
     }
   }
 
   async function handleUndoSettle(txnId) {
+    if (isSettling) return
     try {
+      setIsSettling(true)
       await deleteTransaction(txnId)
       triggerRefresh()
     } catch (err) {
       console.error('Failed to undo settlement:', err)
+    } finally {
+      setIsSettling(false)
     }
   }
 
@@ -189,7 +200,9 @@ export default function Expenses() {
 
   async function handleAdd(e) {
     e.preventDefault()
+    if (submittingExpense) return
     try {
+      setSubmittingExpense(true)
       const expandedExpenses = []
       newExpenses.forEach(item => {
         const value = String(item.amount)
@@ -224,6 +237,8 @@ export default function Expenses() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to create expenses:', err)
+    } finally {
+      setSubmittingExpense(false)
     }
   }
 
@@ -707,9 +722,10 @@ export default function Expenses() {
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => handleUndoSettle(settlementTxn.id)}
+                    disabled={isSettling}
                     style={{ color: 'var(--red)', fontWeight: 600, padding: '2px 6px', height: 'auto', fontSize: '0.75rem' }}
                   >
-                    Undo
+                    {isSettling ? 'Undoing...' : 'Undo'}
                   </button>
                 </div>
               ) : (
@@ -745,10 +761,11 @@ export default function Expenses() {
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => handleSettle(settleAccountId, parseFloat(settleAmount) || 0)}
-                    disabled={!settleAccountId || (parseFloat(settleAmount) || 0) <= 0}
-                    style={{ alignSelf: 'flex-start', fontWeight: 600, fontSize: '0.75rem', padding: '6px 10px', marginTop: 4 }}
+                    disabled={isSettling || !settleAccountId || (parseFloat(settleAmount) || 0) <= 0}
+                    style={{ alignSelf: 'flex-start', fontWeight: 600, fontSize: '0.75rem', padding: '6px 10px', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >
-                    Settle Expenses
+                    {isSettling && <div className="loading-spinner" style={{ width: 12, height: 12 }} />}
+                    <span>{isSettling ? 'Settling...' : 'Settle Expenses'}</span>
                   </button>
                 </div>
               )}
@@ -1027,8 +1044,11 @@ export default function Expenses() {
               </button>
               
               <div className="modal-actions" style={{ marginTop: 0 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Expenses</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)} disabled={submittingExpense}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={submittingExpense} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {submittingExpense && <div className="loading-spinner" style={{ width: 14, height: 14, borderTopColor: '#fff' }} />}
+                  <span>{submittingExpense ? 'Saving...' : 'Save Expenses'}</span>
+                </button>
               </div>
             </div>
           </form>

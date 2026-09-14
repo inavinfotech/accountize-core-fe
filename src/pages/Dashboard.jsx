@@ -28,6 +28,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { currentMonth, triggerRefresh, dashboardData: data, initialLoading: loading, invalidateAndRefresh } = useDataStore()
   const [pendingTxnCount, setPendingTxnCount] = useState(0)
+  const [isSettling, setIsSettling] = useState(false)
 
   // Auto-create missing default accounts in background (from store data)
   useEffect(() => {
@@ -153,7 +154,9 @@ export default function Dashboard() {
   }
 
   async function handleSettle(accountId, amount) {
+    if (isSettling) return
     try {
+      setIsSettling(true)
       await createTransaction({
         account_id: accountId,
         amount: -amount,
@@ -164,6 +167,8 @@ export default function Dashboard() {
       triggerRefresh()
     } catch (err) {
       console.error('Failed to settle expenses from dashboard:', err)
+    } finally {
+      setIsSettling(false)
     }
   }
 
@@ -259,6 +264,7 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => handleSettle(expenseAccounts[0].id, data.totalExpenses)}
+              disabled={isSettling}
               className="btn btn-secondary btn-sm"
               style={{
                 backgroundColor: 'transparent',
@@ -266,12 +272,17 @@ export default function Dashboard() {
                 color: 'var(--amber)',
                 fontWeight: 600,
                 fontSize: '0.8rem',
-                cursor: 'pointer',
+                cursor: isSettling ? 'not-allowed' : 'pointer',
                 padding: '6px 12px',
-                borderRadius: 'var(--radius-sm)'
+                borderRadius: 'var(--radius-sm)',
+                opacity: isSettling ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
               }}
             >
-              Settle Now
+              {isSettling && <div className="loading-spinner" style={{ width: 12, height: 12, borderTopColor: 'var(--amber)' }} />}
+              <span>{isSettling ? 'Settling...' : 'Settle Now'}</span>
             </button>
           </div>
         </div>

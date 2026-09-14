@@ -35,7 +35,7 @@ export default function Expenses() {
   const [settleAmount, setSettleAmount] = useState('')
   const [settleAccountId, setSettleAccountId] = useState('')
   const [userEditedAmount, setUserEditedAmount] = useState(false)
-  const [dailyExpensesExpanded, setDailyExpensesExpanded] = useState(false)
+  const [dailyExpensesExpanded, setDailyExpensesExpanded] = useState(true)
   const [spendingTrendExpanded, setSpendingTrendExpanded] = useState(false)
 
   const [submittingExpense, setSubmittingExpense] = useState(false)

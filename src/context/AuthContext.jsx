@@ -14,53 +14,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true
 
-    // Check active session on mount (with timeout to prevent white screen hang on cold start)
-    async function getInitialSession() {
-      let timeoutId
-      try {
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error('Session check timed out')), 25000)
-        })
-        const result = await Promise.race([sessionPromise, timeoutPromise])
-        if (timeoutId) clearTimeout(timeoutId)
-
-        const session = result?.data?.session ?? null
-        if (result?.error) throw result.error
-        if (!isMounted) return
-
-        setSession(session)
-        setUser(session?.user ?? null)
-        if (session) {
-          const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-          if (!aalError && aalData && isMounted) {
-            setIsMfaRequired(aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2')
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.warn('Initial session check notice:', err?.message || err)
-          // On timeout or error, clear auth state so app doesn't hang on white screen
-          setSession(null)
-          setUser(null)
-          setIsMfaRequired(false)
-        }
-      } finally {
-        if (timeoutId) clearTimeout(timeoutId)
-        if (isMounted) {
-          setLoading(false)
-        }
+    // Helper to evaluate MFA step-up without deadlocking Supabase internal auth lock
+    const evaluateMfaState = (currentSession) => {
+      if (!currentSession) {
+        if (isMounted) setIsMfaRequired(false)
+        return
       }
-    }
 
-    getInitialSession()
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isMounted) return
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session) {
+      // Defer async getAuthenticatorAssuranceLevel to next event loop tick so WebLock is released
+      setTimeout(async () => {
+        if (!isMounted) return
         try {
           const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
           if (!aalError && aalData && isMounted) {
@@ -68,18 +31,33 @@ export function AuthProvider({ children }) {
           } else if (isMounted) {
             setIsMfaRequired(false)
           }
-        } catch (err) {
-          console.error('Error checking AAL:', err)
+        } catch {
           if (isMounted) setIsMfaRequired(false)
         }
-      } else {
-        setIsMfaRequired(false)
+      }, 0)
+    }
+
+    // Safety fallback timer to prevent infinite loading screen if storage/network is stalled
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false)
       }
+    }, 4000)
+
+    // Primary Auth Listener: Supabase v2 immediately emits INITIAL_SESSION on subscribe
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      clearTimeout(fallbackTimer)
+      if (!isMounted) return
+
+      setSession(currentSession)
+      setUser(currentSession?.user ?? null)
+      evaluateMfaState(currentSession)
       setLoading(false)
     })
 
     return () => {
       isMounted = false
+      clearTimeout(fallbackTimer)
       subscription.unsubscribe()
     }
   }, [])

@@ -322,7 +322,7 @@ export default function Dashboard() {
             Total Receivables
             <InfoButton metricId="totalReceivables" contextValues={data} />
           </div>
-          <div className="stat-card-value positive">
+          <div className={`stat-card-value ${getAmountClass(data.totalReceivables, 'receivable')}`}>
             {formatCurrency(data.totalReceivables)}
           </div>
         </div>
@@ -333,7 +333,7 @@ export default function Dashboard() {
             Total Payables
             <InfoButton metricId="totalPayables" contextValues={data} />
           </div>
-          <div className="stat-card-value negative">
+          <div className={`stat-card-value ${getAmountClass(data.totalPayables, 'payable')}`}>
             {formatCurrency(data.totalPayables)}
           </div>
         </div>

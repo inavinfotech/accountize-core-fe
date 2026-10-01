@@ -469,8 +469,14 @@ export default function Accounts() {
             </div>
           </div>
           <div className="account-meta">
-            <span className={`amount ${getAmountClass(account.balance, account.type)}`} style={{ fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center' }}>
+            <span className={`amount ${getAmountClass(account.balance, account.type)}`} style={{ fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               {formatCurrency(account.balance)}
+              {account.type === 'payable' && account.balance < -0.001 && (
+                <span className="badge green" style={{ fontSize: '0.62rem', padding: '2px 6px' }}>Advance</span>
+              )}
+              {account.type === 'receivable' && account.balance < -0.001 && (
+                <span className="badge red" style={{ fontSize: '0.62rem', padding: '2px 6px' }}>Overpaid</span>
+              )}
               <InfoButton 
                 metricId="accountBalance" 
                 contextValues={{ accountName: account.name, balance: account.balance, txnCount: account.transactions?.length || 0 }} 
@@ -952,18 +958,29 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="new-txn-amount" className="form-label">Amount (positive = credit, negative = debit)</label>
+              <label htmlFor="new-txn-amount" className="form-label">
+                {selectedAccount?.type === 'payable' 
+                  ? 'Amount (positive = increase debt, negative = payment / reduce)' 
+                  : selectedAccount?.type === 'receivable'
+                  ? 'Amount (positive = lent / increase, negative = received / reduce)'
+                  : 'Amount (positive = money in, negative = money out)'}
+              </label>
               <input
                 id="new-txn-amount"
                 className="form-input"
                 type="number"
                 step="0.01"
-                placeholder="e.g., 5000 or -2000"
+                placeholder={selectedAccount?.type === 'payable' ? 'e.g., 5000 (borrowed) or -2000 (paid)' : selectedAccount?.type === 'receivable' ? 'e.g., 5000 (lent) or -2000 (received)' : 'e.g., 5000 or -2000'}
                 value={newTxn.amount}
                 onChange={e => setNewTxn({ ...newTxn, amount: e.target.value })}
                 required
                 autoFocus
               />
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                {selectedAccount?.type === 'payable' && '💡 Positive increases what you owe. Negative (e.g. -6000) records a payment made to settle or reduce your debt.'}
+                {selectedAccount?.type === 'receivable' && '💡 Positive increases what they owe you. Negative (e.g. -6000) records payment received from partner.'}
+                {selectedAccount?.type === 'self' && '💡 Positive increases wallet/bank balance. Negative records an outflow or spend.'}
+              </div>
             </div>
             <div className="form-group">
               <label htmlFor="new-txn-desc" className="form-label">Description (optional)</label>
@@ -1053,7 +1070,7 @@ export default function Accounts() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="edit-txn-amount" className="form-label">Amount (positive = credit, negative = debit)</label>
+              <label htmlFor="edit-txn-amount" className="form-label">Amount (positive = increase debt / deposit, negative = payment / withdrawal)</label>
               <input
                 id="edit-txn-amount"
                 className="form-input"

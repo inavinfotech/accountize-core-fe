@@ -220,14 +220,14 @@ export default function Verification() {
                 Total Assets
                 <InfoButton metricId="totalAssetsVerification" contextValues={data} />
               </span>
-              <span className="amount positive">{formatCurrency(data.totalAssets)}</span>
+              <span className={`amount ${getAmountClass(data.totalAssets)}`}>{formatCurrency(data.totalAssets)}</span>
             </div>
             <div className="flex-between">
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 Total Liabilities
                 <InfoButton metricId="totalLiabilitiesVerification" contextValues={data} />
               </span>
-              <span className="amount negative">{formatCurrency(data.totalPayables)}</span>
+              <span className={`amount ${getAmountClass(data.totalPayables, 'payable')}`}>{formatCurrency(data.totalPayables)}</span>
             </div>
             <div className="divider" style={{ margin: '4px 0' }} />
             <div className="flex-between">

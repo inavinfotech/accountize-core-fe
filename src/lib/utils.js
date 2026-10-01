@@ -1,11 +1,12 @@
 export function formatCurrency(amount) {
   if (amount == null || isNaN(amount)) return '₹0.00'
-  const abs = Math.abs(amount)
+  const num = Number(amount)
+  const abs = Math.abs(num)
   const formatted = new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(abs)
-  return `₹${formatted}`
+  return `${num < -0.0001 ? '-' : ''}₹${formatted}`
 }
 
 export function formatDate(dateStr) {
@@ -81,20 +82,21 @@ export function getDaysInMonth(monthYear) {
 }
 
 export function getAmountClass(amount, type) {
+  const num = Number(amount) || 0
   if (type === 'payable') {
-    return 'negative'
+    return num > 0.001 ? 'negative' : num < -0.001 ? 'positive' : ''
   }
   if (type === 'receivable') {
-    return 'positive'
+    return num > 0.001 ? 'positive' : num < -0.001 ? 'negative' : ''
   }
   if (type === 'payable-txn') {
-    return amount > 0 ? 'negative' : amount < 0 ? 'positive' : ''
+    return num > 0.001 ? 'negative' : num < -0.001 ? 'positive' : ''
   }
   if (type === 'receivable-txn') {
-    return amount > 0 ? 'positive' : amount < 0 ? 'negative' : ''
+    return num > 0.001 ? 'positive' : num < -0.001 ? 'negative' : ''
   }
-  if (amount > 0) return 'positive'
-  if (amount < 0) return 'negative'
+  if (num > 0.001) return 'positive'
+  if (num < -0.001) return 'negative'
   return ''
 }
 

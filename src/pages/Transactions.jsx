@@ -375,7 +375,6 @@ export default function Transactions() {
                 <tbody>
                   {filteredTransactions.map(txn => {
                     const acc = txn.accounts || {}
-                    const isCredit = txn.amount > 0
                     
                     return (
                       <tr key={txn.id} style={{ transition: 'background var(--transition-fast)' }}>
@@ -393,7 +392,7 @@ export default function Transactions() {
                         <td style={{ padding: '10px 12px', fontSize: '0.75rem', fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={txn.description}>
                           {txn.description || <span style={{ color: 'var(--text-muted)' }}>-</span>}
                         </td>
-                        <td className={`amount ${isCredit ? 'positive' : 'negative'}`} style={{ padding: '10px 12px', fontSize: '0.75rem', textAlign: 'right' }}>
+                        <td className={`amount ${getAmountClass(txn.amount, acc.type ? `${acc.type}-txn` : undefined)}`} style={{ padding: '10px 12px', fontSize: '0.75rem', textAlign: 'right' }}>
                           {formatCurrency(Math.abs(txn.amount))}
                         </td>
                         <td style={{ padding: '6px 12px', textAlign: 'center' }}>

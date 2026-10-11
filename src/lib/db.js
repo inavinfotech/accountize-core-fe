@@ -1096,6 +1096,10 @@ export async function getYearlyReportData(fyStartYear, accountCreatedMonth) {
         if (!isOnlineVerified) fault += Math.abs((data.onlineBalance || 0) - manualOnlineVal)
         if (!isCashVerified) fault += Math.abs((data.cashBalance || 0) - manualCashVal)
 
+        const selfTotalVal = data.selfTotal !== undefined 
+          ? data.selfTotal 
+          : ((data.cashBalance || 0) + (data.onlineBalance || 0) + (data.bankBalance || 0))
+
         return {
           month: m,
           totalReceivables: data.totalReceivables || 0,
@@ -1104,6 +1108,8 @@ export async function getYearlyReportData(fyStartYear, accountCreatedMonth) {
           onlineBalance: data.onlineBalance || 0,
           bankBalance: data.bankBalance || 0,
           rawOnlineBalance: data.rawOnlineBalance || 0,
+          selfTotal: selfTotalVal,
+          physicalMoneyAvailable: selfTotalVal,
           totalAssets: data.totalAssets || 0,
           availableBalance: data.availableBalance || 0,
           totalExpenses: data.totalExpenses || 0,
@@ -1123,6 +1129,8 @@ export async function getYearlyReportData(fyStartYear, accountCreatedMonth) {
           onlineBalance: 0,
           bankBalance: 0,
           rawOnlineBalance: 0,
+          selfTotal: 0,
+          physicalMoneyAvailable: 0,
           totalAssets: 0,
           availableBalance: 0,
           totalExpenses: 0,

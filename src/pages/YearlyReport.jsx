@@ -62,6 +62,7 @@ export default function YearlyReport() {
     return reportData.monthsData.map(m => ({
       monthLabel: formatMonthName(m.month, true),
       fullMonth: m.month,
+      physicalMoneyAvailable: m.physicalMoneyAvailable ?? m.selfTotal ?? ((m.cashBalance || 0) + (m.onlineBalance || 0) + (m.bankBalance || 0)),
       availableBalance: m.availableBalance,
       totalAssets: m.totalAssets,
       totalLiabilities: m.totalPayables,
@@ -319,7 +320,7 @@ export default function YearlyReport() {
                     onClick={() => setActiveChartTab('trajectory')}
                   >
                     <Layers size={14} />
-                    <span>Net Balance & Wealth</span>
+                    <span>Physical Money & Wealth</span>
                   </button>
                   <button
                     type="button"
@@ -361,6 +362,7 @@ export default function YearlyReport() {
                       <Tooltip
                         formatter={(value, name) => [
                           formatCurrency(value),
+                          name === 'physicalMoneyAvailable' ? 'Total Physical Money Available' :
                           name === 'availableBalance' ? 'Net Available Balance' :
                           name === 'totalAssets' ? 'Total Assets' : 'Total Liabilities'
                         ]}
@@ -376,10 +378,14 @@ export default function YearlyReport() {
                       <Legend
                         verticalAlign="top"
                         height={36}
-                        formatter={(val) => val === 'availableBalance' ? 'Net Available Balance' : val === 'totalAssets' ? 'Total Assets' : 'Total Liabilities'}
+                        formatter={(val) => 
+                          val === 'physicalMoneyAvailable' ? 'Total Physical Money Available' :
+                          val === 'availableBalance' ? 'Net Available Balance' :
+                          val === 'totalAssets' ? 'Total Assets' : 'Total Liabilities'
+                        }
                       />
                       <Area type="monotone" dataKey="totalAssets" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#pageColorAssets)" />
-                      <Area type="monotone" dataKey="availableBalance" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#pageColorBalance)" />
+                      <Area type="monotone" dataKey="physicalMoneyAvailable" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#pageColorBalance)" />
                       <Area type="monotone" dataKey="totalLiabilities" stroke="#ef4444" strokeWidth={2} fillOpacity={0.1} fill="#ef4444" />
                     </AreaChart>
                   ) : activeChartTab === 'expenses' ? (
